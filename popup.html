@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FB Messenger Voice Downloader</title>
+  <style>
+    body {
+      width: 300px;
+      padding: 15px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #1c1e21;
+      background-color: #f0f2f5;
+    }
+    
+    h1 {
+      font-size: 18px;
+      margin-top: 0;
+      color: #0084ff;
+      text-align: center;
+    }
+    
+    .status {
+      padding: 10px;
+      background-color: #e7f3ff;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      border-left: 4px solid #0084ff;
+    }
+    
+    .instructions {
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    
+    .instructions ol {
+      padding-left: 20px;
+    }
+    
+    .footer {
+      margin-top: 15px;
+      font-size: 12px;
+      color: #65676b;
+      text-align: center;
+    }
+    
+    button {
+      background-color: #0084ff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+      margin-top: 10px;
+    }
+    
+    button:hover {
+      background-color: #0099ff;
+    }
+    
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #18191a;
+        color: #e4e6eb;
+      }
+      
+      .status {
+        background-color: #3a3b3c;
+        border-left: 4px solid #0099ff;
+      }
+      
+      .footer {
+        color: #b0b3b8;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>FB Messenger Voice Downloader</h1>
+  
+  <div class="status">
+    <p>✅ Extension is active and ready to use!</p>
+  </div>
+  
+  <div class="instructions">
+    <p>How to use:</p>
+    <ol>
+      <li>Navigate to Facebook Messenger</li>
+      <li>Open a conversation with voice messages</li>
+      <li>Look for the download button (↓) next to each voice message</li>
+      <li>Click the button to download the voice message</li>
+    </ol>
+  </div>
+  
+  <button id="options-btn">Options</button>
+  
+  <div class="footer">
+    <p>Version 1.0.0</p>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

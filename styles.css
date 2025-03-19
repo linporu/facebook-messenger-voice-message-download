@@ -1,0 +1,50 @@
+/**
+ * Facebook Messenger Voice Message Downloader
+ * 
+ * Styles for the download button and other UI elements.
+ */
+
+/* Download button */
+.fb-voice-msg-download-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: transparent;
+  cursor: pointer;
+  margin-left: 4px;
+  transition: background-color 0.2s ease;
+  color: #0084ff;
+}
+
+.fb-voice-msg-download-btn:hover {
+  background-color: rgba(0, 132, 255, 0.1);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .fb-voice-msg-download-btn {
+    color: #0099ff;
+  }
+  
+  .fb-voice-msg-download-btn:hover {
+    background-color: rgba(0, 153, 255, 0.2);
+  }
+}
+
+/* Animation for download button */
+.fb-voice-msg-download-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.fb-voice-msg-download-btn:hover svg {
+  transform: translateY(2px);
+}
+
+/* Button positioning adjustments */
+.fb-voice-msg-download-btn {
+  position: relative;
+  z-index: 1;
+}
