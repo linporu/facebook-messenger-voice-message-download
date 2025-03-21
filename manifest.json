@@ -1,16 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Facebook Messenger Voice Message Downloader",
+  "name": "Chrome Extension Template",
   "version": "1.0.0",
-  "description": "Add download buttons to voice messages in Facebook Messenger",
+  "description": "Basic Chrome Extension Template",
   "permissions": [
-    "activeTab",
-    "scripting",
-    "downloads"
-  ],
-  "host_permissions": [
-    "https://*.facebook.com/*",
-    "https://*.messenger.com/*"
+    "activeTab"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -28,8 +22,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*.facebook.com/*",
-        "https://*.messenger.com/*"
+        "<all_urls>"
       ],
       "js": ["content.js"],
       "css": ["styles.css"]
