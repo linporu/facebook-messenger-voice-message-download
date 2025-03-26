@@ -7,8 +7,8 @@ facebook-messenger-voice-message-download/
 ├── extension/                  # 要上傳到 Chrome Web Store 的檔案
 │   ├── manifest.json           # 擴充功能配置
 │   ├── background.js           # 背景腳本
-│   ├── content-scripts/
-│   │   └── voice-detector.js   # 內容腳本
+│   ├── scripts/
+│   │   └── content.js   # 內容腳本
 │   ├── popup/                  # 選擇性的彈出視窗
 │   │   ├── popup.html
 │   │   ├── popup.css
@@ -64,21 +64,27 @@ facebook-messenger-voice-message-download/
 ## 建置和發布流程
 
 1. **開發流程**：
+
    ```bash
    npm run dev
    ```
+
    這將啟動開發模式，監視檔案變化並自動重新載入擴充功能。
 
 2. **測試流程**：
+
    ```bash
    npm test
    ```
+
    運行所有測試，確保擴充功能正常運作。
 
 3. **建置流程**：
+
    ```bash
    npm run build
    ```
+
    這將建置擴充功能，優化程式碼並產生最終版本。
 
 4. **打包流程**：
