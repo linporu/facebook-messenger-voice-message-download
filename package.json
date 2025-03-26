@@ -1,0 +1,26 @@
+{
+  "name": "facebook-messenger-voice-message-download",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "jest",
+    "dev": "node scripts/dev.js",
+    "build": "node scripts/build.js",
+    "package": "node scripts/package.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/chrome": "^0.0.312",
+    "archiver": "^7.0.1",
+    "fs-extra": "^11.3.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  }
+}
