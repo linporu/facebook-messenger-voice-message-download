@@ -1,253 +1,151 @@
 # Facebook Messenger Voice Message Downloader - Technical Implementation
 
-This document outlines the technical implementation details for the Facebook Messenger Voice Message Downloader Chrome extension.
+本文檔概述了 Facebook Messenger 語音訊息下載 Chrome 擴充功能的技術實現細節。
 
-## Architecture Overview
+## 架構概覽
 
-The extension follows a standard Chrome extension architecture with Manifest V3 compliance:
+擴充功能遵循標準的 Chrome 擴充功能架構，符合 Manifest V3 規範：
 
 ```
 facebook-messenger-voice-message-download/
-├── manifest.json           # Extension configuration
-├── background.js           # Background service worker
-├── content-scripts/
-│   └── voice-detector.js   # Content script for voice message detection
-├── popup/
-│   ├── popup.html          # Optional popup UI
-│   └── popup.js            # Optional popup logic
-└── assets/
-    └── icons/              # Extension icons
+├── extension/                  # 要上傳到 Chrome Web Store 的檔案
+│   ├── manifest.json           # 擴充功能配置
+│   ├── background.js           # 背景腳本
+│   ├── content-scripts/
+│   │   └── voice-detector.js   # 內容腳本
+│   └── assets/
+│       └── icons/              # 擴充功能圖示
+├── docs/                       # 文件
+├── tests/                      # 測試檔案
+└── scripts/                    # 開發和建置腳本
 ```
 
-## Core Components
+## 核心組件
 
-### 1. Manifest Configuration
+### 1. Manifest 配置
 
-```json
-{
-  "manifest_version": 3,
-  "name": "Facebook Messenger Voice Message Downloader",
-  "version": "1.0.0",
-  "description": "Download voice messages from Facebook Messenger with a simple right-click",
-  "permissions": [
-    "contextMenus",
-    "downloads",
-    "activeTab"
-  ],
-  "host_permissions": [
-    "*://*.facebook.com/*",
-    "*://*.messenger.com/*"
-  ],
-  "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": ["*://*.facebook.com/*", "*://*.messenger.com/*"],
-      "js": ["content-scripts/voice-detector.js"]
-    }
-  ],
-  "icons": {
-    "16": "assets/icons/icon16.png",
-    "48": "assets/icons/icon48.png",
-    "128": "assets/icons/icon128.png"
-  }
-}
+Manifest 配置包含：
+
+- manifest_version: 3
+- 基本資訊（名稱、版本、描述）
+- 權限：
+  - contextMenus：用於添加右鍵選單
+  - downloads：用於下載檔案
+  - activeTab：用於訪問當前頁面
+- 主機權限：facebook.com 和 messenger.com
+- 背景腳本：background.js
+- 內容腳本：voice-detector.js（匹配 facebook.com 和 messenger.com）
+- 圖示：多種尺寸
+
+### 2. 語音訊息偵測 (content-scripts/voice-detector.js)
+
+內容腳本負責：
+
+1. 偵測 DOM 中的語音訊息元素
+2. 監控 MP4 檔案的網路請求
+3. 建立音訊持續時間與下載 URL 的對應關係
+4. 處理語音訊息元素的右鍵點擊事件
+
+```
+偽代碼：
+
+1. 初始化：
+   - 建立 audioMap 用於儲存持續時間和 URL 的對應關係
+   - 建立 voiceMessageRegistry 使用 Map 數據結構追蹤所有語音訊息元素
+
+2. 偵測語音訊息元素：
+   - 主要方法：尋找具有 role="slider" 和 aria-label="音訊滑桿" 的元素
+   - 次要方法：尋找具有 role="button" 和 aria-label="播放" 的元素
+   - 對每個找到的元素：
+     * 標記為語音訊息元素（data-voice-message-element="true"）
+     * 從 aria-valuemax 屬性提取持續時間（秒）
+     * 如果持續時間是有效數字：
+       - 將秒轉換為毫秒
+       - 為元素生成唯一 ID（如果尚未有）：voice-msg-{timestamp}-{隨機字串}
+       - 將元素註冊到 voiceMessageRegistry 中
+
+3. 設置 MutationObserver 偵測動態載入的內容：
+   - 監聽 document.body 的變化
+   - 當有新節點添加時，執行語音訊息偵測函數
+   - 設置監聽選項：childList=true, subtree=true
+
+4. 攔截網路請求以獲取音訊 URL：
+   - 代理 window.fetch 函數
+   - 檢查請求 URL 是否包含 ".mp4" 和 "audioclip"
+   - 從 content-disposition 標頭中提取持續時間
+   - 格式範例：attachment; filename=audioclip-1742393117000-30999.mp4
+   - 上述正確的持續時間為 .mp4 前面的 30999（毫秒）
+   - 將持續時間（毫秒）和 URL 存入 audioMap
+
+5. 處理右鍵點擊事件：
+   - 監聽 document 的 contextmenu 事件
+   - 當事件觸發時：
+     * 記錄實際點擊的元素（event.target）
+     * 從事件目標開始向上遍歷 DOM 樹：
+       - 檢查當前元素是否有 data-voice-message-element="true" 屬性
+       - 檢查元素是否匹配 div[role="slider"][aria-label="音訊滑桿"]
+       - 檢查元素是否在語音訊息容器內（使用 closest 方法）
+       - 如果找到匹配元素，記錄並停止遍歷
+       - 否則移動到父元素繼續檢查
+     * 如果找到語音訊息元素：
+       - 從 aria-valuemax 屬性提取持續時間（秒）
+       - 轉換為毫秒以用於查找對應的 URL
+       - 從 audioMap 中查找對應的下載 URL
+       - 發送訊息到背景腳本，包含：
+         - action: 'rightClickOnVoiceMessage'
+         - durationMs: 持續時間（毫秒）
+         - elementId: 元素 ID
+         - downloadUrl: 下載 URL
+
+6. 初始化腳本：
+   - 執行語音訊息偵測
+   - 設置 MutationObserver
+   - 設置網路請求攔截
+   - 在 DOM 完全載入時啟動
 ```
 
-### 2. Voice Message Detection (content-scripts/voice-detector.js)
+### 3. 背景腳本 (background.js)
 
-The content script is responsible for:
-1. Detecting voice message elements in the DOM
-2. Monitoring network requests for MP4 files
-3. Creating a mapping between audio durations and download URLs
-4. Handling right-click events on voice message elements
+背景腳本負責：
 
-```javascript
-// Global map to store audio durations and their corresponding URLs
-const audioMap = new Map();
+1. 建立和管理右鍵選單
+2. 當選單項被點擊時啟動下載
 
-// Function to detect voice message elements
-function detectVoiceMessages() {
-  // Primary method: Find elements with role="slider" and aria-label="音訊滑桿" (Audio slider)
-  const sliderElements = document.querySelectorAll('div[role="slider"][aria-label="音訊滑桿"]');
-  
-  // Secondary method: Find elements with role="button" and aria-label="播放" (Play)
-  const playButtons = document.querySelectorAll('div[role="button"][aria-label="播放"]');
-  
-  // Process found elements
-  sliderElements.forEach(element => {
-    // Mark elements for context menu handling
-    element.dataset.voiceMessageElement = 'true';
-    console.log('Found voice message slider:', element);
-  });
-}
-
-// Set up MutationObserver to detect dynamically loaded voice messages
-function setupMutationObserver() {
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.addedNodes.length) {
-        // Check if any added nodes contain voice message elements
-        detectVoiceMessages();
-      }
-    });
-  });
-  
-  // Start observing the document body for DOM changes
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
-}
-
-// Network request interception using fetch API
-function interceptAudioRequests() {
-  // Use a proxy to intercept fetch requests
-  const originalFetch = window.fetch;
-  
-  window.fetch = async function(input, init) {
-    const response = await originalFetch(input, init);
-    
-    // Clone the response to avoid consuming it
-    const responseClone = response.clone();
-    
-    // Check if this is an audio file
-    if (input && typeof input === 'string' && input.includes('.mp4') && input.includes('audioclip')) {
-      responseClone.headers.get('content-disposition').then(disposition => {
-        if (disposition && disposition.includes('audioclip')) {
-          // Extract duration from filename
-          // Format: attachment; filename=audioclip-1742393117000-30999.mp4
-          const match = disposition.match(/audioclip-\d+-(\d+)\.mp4/);
-          if (match && match[1]) {
-            const durationMs = parseInt(match[1], 10);
-            // Store in our map
-            audioMap.set(durationMs, input);
-            console.log(`Mapped audio duration ${durationMs}ms to URL: ${input}`);
-          }
-        }
-      }).catch(err => console.error('Error processing audio response:', err));
-    }
-    
-    return response;
-  };
-}
-
-// Send message to background script when right-clicking on voice message
-document.addEventListener('contextmenu', (event) => {
-  // Check if right-clicked element is a voice message or its child
-  let targetElement = event.target;
-  let voiceMessageElement = null;
-  
-  // Traverse up to find voice message element
-  while (targetElement && targetElement !== document.body) {
-    if (targetElement.dataset.voiceMessageElement === 'true' || 
-        targetElement.closest('div[role="slider"][aria-label="音訊滑桿"]')) {
-      voiceMessageElement = targetElement.closest('div[role="slider"][aria-label="音訊滑桿"]') || targetElement;
-      break;
-    }
-    targetElement = targetElement.parentElement;
-  }
-  
-  if (voiceMessageElement) {
-    // Extract duration from aria-valuemax (in seconds)
-    const durationSec = parseFloat(voiceMessageElement.getAttribute('aria-valuemax'));
-    if (!isNaN(durationSec)) {
-      // Convert to milliseconds for our map lookup
-      const durationMs = Math.round(durationSec * 1000);
-      
-      // Send message to background script with duration
-      chrome.runtime.sendMessage({
-        action: 'rightClickOnVoiceMessage',
-        durationMs: durationMs
-      });
-    }
-  }
-});
-
-// Listen for download command from background script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'downloadVoiceMessage' && message.durationMs) {
-    const url = audioMap.get(message.durationMs);
-    if (url) {
-      sendResponse({ success: true, url: url });
-    } else {
-      sendResponse({ success: false, error: 'URL not found for this duration' });
-    }
-  }
-  return true; // Keep the message channel open for async response
-});
-
-// Initialize
-function init() {
-  console.log('Facebook Messenger Voice Message Downloader initialized');
-  detectVoiceMessages();
-  setupMutationObserver();
-  interceptAudioRequests();
-}
-
-// Start when DOM is fully loaded
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
 ```
+偽代碼：
 
-### 3. Background Script (background.js)
+1. 初始化右鍵選單：
+   - 在擴充功能安裝時建立右鍵選單項
+   - 設置選單項屬性：
+     * id: 'downloadVoiceMessage'
+     * title: 'Download Voice Message'
+     * contexts: ['all']
+     * documentUrlPatterns: ['*://*.facebook.com/*', '*://*.messenger.com/*']
+     * visible: false  // 初始不可見
 
-The background script handles:
-1. Context menu creation and management
-2. Initiating downloads when the context menu item is clicked
+2. 儲存右鍵點擊資訊：
+   - 建立 lastRightClickedInfo 變數儲存右鍵點擊的語音訊息資訊
 
-```javascript
-// Create context menu item
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'downloadVoiceMessage',
-    title: 'Download Voice Message',
-    contexts: ['all'],
-    documentUrlPatterns: ['*://*.facebook.com/*', '*://*.messenger.com/*']
-  });
-});
+3. 監聽來自內容腳本的訊息：
+   - 當收到 action='rightClickOnVoiceMessage' 訊息時：
+     * 儲存訊息中的資訊（tabId, durationMs, elementId, downloadUrl）
+     * 如果有有效的 downloadUrl，將右鍵選單項設為可見
+     * 否則記錄找不到下載 URL 的訊息
 
-// Store the last right-clicked voice message duration
-let lastRightClickedDurationMs = null;
+4. 處理右鍵選單關閉事件：
+   - 當右鍵選單關閉時，將選單項再次設為不可見
+   - 清除儲存的右鍵點擊資訊
 
-// Listen for right-click on voice message from content script
-chrome.runtime.onMessage.addListener((message, sender) => {
-  if (message.action === 'rightClickOnVoiceMessage' && message.durationMs) {
-    lastRightClickedDurationMs = message.durationMs;
-    // Enable context menu item (it's always visible but will only work when we have a duration)
-  }
-});
-
-// Handle context menu click
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'downloadVoiceMessage' && lastRightClickedDurationMs) {
-    // Send message to content script to get the URL for this duration
-    chrome.tabs.sendMessage(tab.id, {
-      action: 'downloadVoiceMessage',
-      durationMs: lastRightClickedDurationMs
-    }, response => {
-      if (response && response.success && response.url) {
-        // Generate a filename with timestamp
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `voice-message-${timestamp}-${lastRightClickedDurationMs}ms.mp4`;
-        
-        // Download the file
-        chrome.downloads.download({
-          url: response.url,
-          filename: filename,
-          saveAs: false // Set to true if you want the user to choose the save location
-        });
-      } else {
-        console.error('Failed to get download URL:', response?.error || 'Unknown error');
-        // Optionally show an error notification
-      }
-    });
-  }
-});
+5. 處理右鍵選單點擊事件：
+   - 當選單項 'downloadVoiceMessage' 被點擊且有有效的 lastRightClickedInfo 時：
+     * 生成包含時間戳和持續時間的檔案名稱
+     * 格式：voice-message-{timestamp}-{durationMs}ms.mp4
+     * 使用 chrome.downloads.download API 下載檔案
+     * 設置下載參數：
+       - url: 下載 URL
+       - filename: 生成的檔案名稱
+       - saveAs: false（可設為 true 讓用戶選擇儲存位置）
+     * 記錄下載訊息或錯誤訊息
 ```
 
 ## Implementation Challenges and Solutions
@@ -263,6 +161,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 **Challenge**: Reliably connecting the UI element (with duration in seconds) to the correct download URL (with duration in milliseconds).
 
 **Solution**: Create a mapping system that:
+
 1. Extracts duration from the filename in the content-disposition header
 2. Stores the URL with the duration as key
 3. When a user right-clicks, converts the aria-valuemax (seconds) to milliseconds and looks up the URL
@@ -278,194 +177,23 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 **Challenge**: Facebook may change their UI structure, breaking the detection mechanism.
 
 **Solution**: Implement multiple detection methods:
+
 1. Primary: Find elements with role="slider" and aria-label="音訊滑桿"
 2. Secondary: Find elements with role="button" and aria-label="播放" with specific SVG path
 
-### 5. Precise UI Element Recognition
+### 5. Precise UI Element Recognition and Multiple Voice Messages Handling
 
-**Challenge**: Accurately identifying which specific voice message UI element the user is right-clicking on, especially when multiple voice messages are present on the page.
+**Challenge**:
 
-**Solution**: Implement a sophisticated DOM traversal approach:
+- Accurately identifying which specific voice message UI element the user is right-clicking on
+- Distinguishing between multiple voice messages on the page, especially if they have similar durations
 
-```javascript
-// Listen for right-click events anywhere on the page
-document.addEventListener('contextmenu', (event) => {
-  // Start with the element that was actually clicked
-  let targetElement = event.target;
-  let voiceMessageElement = null;
-  
-  // Traverse up the DOM tree to find a voice message container
-  while (targetElement && targetElement !== document.body) {
-    // Method 1: Check for our custom data attribute (added during detection)
-    if (targetElement.dataset.voiceMessageElement === 'true') {
-      voiceMessageElement = targetElement;
-      break;
-    }
-    
-    // Method 2: Check for the slider element directly
-    if (targetElement.matches('div[role="slider"][aria-label="音訊滑桿"]')) {
-      voiceMessageElement = targetElement;
-      break;
-    }
-    
-    // Method 3: Check if it's within a voice message container
-    const sliderParent = targetElement.closest('div[role="slider"][aria-label="音訊滑桿"]');
-    if (sliderParent) {
-      voiceMessageElement = sliderParent;
-      break;
-    }
-    
-    // Move up to the parent element
-    targetElement = targetElement.parentElement;
-  }
-  
-  // If we found a voice message element, tell the background script
-  if (voiceMessageElement) {
-    // Extract the duration from the aria-valuemax attribute
-    const durationSec = parseFloat(voiceMessageElement.getAttribute('aria-valuemax'));
-    
-    if (!isNaN(durationSec)) {
-      // Convert to milliseconds for our map lookup
-      const durationMs = Math.round(durationSec * 1000);
-      
-      // Store this element's ID for later reference
-      const elementId = `voice-msg-${Date.now()}`;
-      voiceMessageElement.dataset.voiceMessageId = elementId;
-      
-      // Look up the URL directly from our audio map
-      const downloadUrl = audioMap.get(durationMs);
-      
-      // Tell the background script we found a voice message AND send the URL
-      chrome.runtime.sendMessage({
-        action: 'rightClickOnVoiceMessage',
-        durationMs: durationMs,
-        elementId: elementId,
-        downloadUrl: downloadUrl || null
-      });
-      
-      console.log(`Right-clicked on voice message with duration: ${durationSec}s (${durationMs}ms), URL found: ${downloadUrl ? 'Yes' : 'No'}`);
-    }
-  }
-});
-```
+**Solution**:
 
-### 6. Handling Multiple Voice Messages
-
-**Challenge**: Distinguishing between multiple voice messages on the page, especially if they have similar durations.
-
-**Solution**: Implement a registry system to track all voice message elements:
-
-```javascript
-// Keep track of all voice message elements and their durations
-const voiceMessageRegistry = new Map();
-
-function detectVoiceMessages() {
-  // Find all slider elements
-  const sliderElements = document.querySelectorAll('div[role="slider"][aria-label="音訊滑桿"]');
-  
-  sliderElements.forEach(element => {
-    // Mark this as a voice message element
-    element.dataset.voiceMessageElement = 'true';
-    
-    // Extract the duration
-    const durationSec = parseFloat(element.getAttribute('aria-valuemax'));
-    if (!isNaN(durationSec)) {
-      const durationMs = Math.round(durationSec * 1000);
-      
-      // Generate a unique ID for this element if it doesn't have one
-      if (!element.dataset.voiceMessageId) {
-        element.dataset.voiceMessageId = `voice-msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      }
-      
-      // Register this element
-      voiceMessageRegistry.set(element.dataset.voiceMessageId, {
-        element: element,
-        durationSec: durationSec,
-        durationMs: durationMs
-      });
-      
-      console.log(`Registered voice message: ${element.dataset.voiceMessageId} with duration ${durationSec}s`);
-    }
-  });
-}
-```
-
-### 7. Context Menu Management
-
-**Challenge**: Showing the context menu only when right-clicking on voice message elements.
-
-**Solution**: Dynamically control context menu visibility in the background script:
-
-```javascript
-// Initially create the context menu item as hidden
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'downloadVoiceMessage',
-    title: 'Download Voice Message',
-    contexts: ['all'],
-    documentUrlPatterns: ['*://*.facebook.com/*', '*://*.messenger.com/*'],
-    visible: false  // Start with the menu item hidden
-  });
-});
-
-// Store information about the last right-clicked voice message
-let lastRightClickedInfo = null;
-
-// Listen for right-click on voice message from content script
-chrome.runtime.onMessage.addListener((message, sender) => {
-  if (message.action === 'rightClickOnVoiceMessage' && message.durationMs) {
-    // Store the information about this voice message, including the download URL
-    lastRightClickedInfo = {
-      tabId: sender.tab.id,
-      durationMs: message.durationMs,
-      elementId: message.elementId,
-      downloadUrl: message.downloadUrl
-    };
-    
-    // Only show the context menu if we have a valid download URL
-    if (message.downloadUrl) {
-      // Update the context menu to be visible
-      chrome.contextMenus.update('downloadVoiceMessage', {
-        visible: true
-      });
-    } else {
-      console.log('No download URL found for this voice message');
-    }
-  }
-});
-
-// Handle when context menu is closed without selecting an item
-chrome.contextMenus.onHidden.addListener(() => {
-  // Hide our menu item again until the next right-click on a voice message
-  chrome.contextMenus.update('downloadVoiceMessage', {
-    visible: false
-  });
-  
-  // Clear the last right-clicked info
-  lastRightClickedInfo = null;
-});
-
-// Handle context menu click
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'downloadVoiceMessage' && lastRightClickedInfo && lastRightClickedInfo.downloadUrl) {
-    // Generate a filename with timestamp
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `voice-message-${timestamp}-${lastRightClickedInfo.durationMs}ms.mp4`;
-    
-    // Download the file directly using the URL we already have
-    chrome.downloads.download({
-      url: lastRightClickedInfo.downloadUrl,
-      filename: filename,
-      saveAs: false // Set to true if you want the user to choose the save location
-    });
-    
-    console.log(`Downloading voice message: ${filename}`);
-  } else if (info.menuItemId === 'downloadVoiceMessage') {
-    console.error('No download URL available for this voice message');
-    // Optionally show an error notification to the user
-  }
-});
-```
+- Implement a sophisticated DOM traversal approach that starts from the clicked element and moves up the DOM tree
+- Create a registry system (voiceMessageRegistry) to track all voice message elements with unique IDs
+- Store duration information for accurate mapping between UI elements and download URLs
+- Dynamically control context menu visibility to show the download option only when right-clicking on valid voice messages
 
 ## Testing Strategy
 
@@ -473,18 +201,20 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 Use Jest for unit testing:
 
-```javascript
-// Example test for duration extraction
-test('extracts duration from content-disposition header', () => {
-  const header = 'attachment; filename=audioclip-1742393117000-30999.mp4';
-  const duration = extractDurationFromHeader(header);
-  expect(duration).toBe(30999);
-});
+```
+偽代碼：
+
+// 持續時間提取測試
+測試案例：從 content-disposition 標頭提取持續時間
+  輸入：'attachment; filename=audioclip-1742393117000-30999.mp4'
+  執行：extractDurationFromHeader(輸入)
+  期望結果：30999
 ```
 
 ### Integration Tests
 
 Test the extension on both facebook.com and messenger.com:
+
 1. Verify voice message detection
 2. Confirm context menu appears when right-clicking on voice messages
 3. Validate download functionality
@@ -514,6 +244,7 @@ Test the extension on both facebook.com and messenger.com:
 ## Browser Compatibility
 
 The extension is designed for Chrome but could be adapted for:
+
 - Firefox (with minimal changes to manifest.json)
 - Edge (fully compatible with Chrome extensions)
 - Opera (based on Chromium, should be compatible)
