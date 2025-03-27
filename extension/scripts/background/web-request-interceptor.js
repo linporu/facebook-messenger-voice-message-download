@@ -183,10 +183,22 @@ function handleCompletedRequest(voiceMessages, details) {
       return;
     }
 
-    // 只處理成功的 GET 請求
-    if (details.method !== "GET" || details.statusCode !== 200) {
+    // 只處理成功的 GET 請求 (200 OK 或 206 Partial Content)
+    if (
+      details.method !== "GET" ||
+      (details.statusCode !== 200 && details.statusCode !== 206)
+    ) {
+      console.log(
+        `[DEBUG-WEBREQUEST] 跳過非 GET 或非成功狀態的請求: ${details.method} ${details.statusCode}`
+      );
       return;
     }
+
+    console.log(
+      `[DEBUG-WEBREQUEST] 處理成功的 GET 請求: ${
+        details.statusCode
+      } ${details.url.substring(0, 100)}...`
+    );
 
     // 從 URL 和標頭中提取資訊
     let durationMs = null;
