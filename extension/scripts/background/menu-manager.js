@@ -7,7 +7,7 @@
  * 初始化右鍵選單
  */
 export function initMenuManager() {
-  console.log('初始化右鍵選單管理器');
+  console.log('[DEBUG-BACKGROUND] 初始化右鍵選單管理器');
   
   // 創建右鍵選單項目
   chrome.contextMenus.create({
@@ -18,12 +18,26 @@ export function initMenuManager() {
       '*://*.facebook.com/*',
       '*://*.messenger.com/*'
     ]
+  }, () => {
+    if (chrome.runtime.lastError) {
+      console.error('[DEBUG-BACKGROUND] 創建右鍵選單失敗:', chrome.runtime.lastError);
+    } else {
+      console.log('[DEBUG-BACKGROUND] 創建右鍵選單成功');
+    }
   });
   
   // 監聽右鍵選單點擊事件
   chrome.contextMenus.onClicked.addListener((info, tab) => {
+    console.log('[DEBUG-BACKGROUND] 右鍵選單點擊事件:', {
+      menuItemId: info.menuItemId,
+      pageUrl: tab?.url?.substring(0, 50) + '...'
+    });
+    
     if (info.menuItemId === 'downloadVoiceMessage') {
+      console.log('[DEBUG-BACKGROUND] 調用 handleMenuClick 函數');
       handleMenuClick(info, tab);
+    } else {
+      console.log('[DEBUG-BACKGROUND] 非目標選單項目:', info.menuItemId);
     }
   });
 }
@@ -35,8 +49,13 @@ export function initMenuManager() {
  * @param {chrome.tabs.Tab} tab - 標籤頁資訊
  */
 function handleMenuClick(info, tab) {
-  console.log('右鍵選單點擊', info, tab);
+  console.log('[DEBUG-BACKGROUND] 右鍵選單點擊詳細資訊:', {
+    menuItemId: info.menuItemId,
+    frameId: info.frameId,
+    pageUrl: tab?.url?.substring(0, 50) + '...'
+  });
   
   // 這裡不需要做任何事情，因為我們已經在 lastRightClickedInfo 中保存了下載資訊
   // 實際的下載邏輯在 download-manager.js 中處理
+  console.log('[DEBUG-BACKGROUND] 右鍵選單點擊處理完成');
 }
