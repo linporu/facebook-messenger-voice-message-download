@@ -51,8 +51,8 @@ Manifest 配置包含：
 
 1. 初始化：
    - 建立單一資料結構 voiceMessages：
-     * byId: 以元素 ID 為鍵的 Map，儲存完整語音訊息資料
-     * byDuration: 以持續時間（毫秒）為鍵的 Map，值為元素 ID 集合
+     * items: 以元素 ID 為鍵的 Map，儲存完整語音訊息資料
+     * isDurationMatch: 判斷兩個持續時間是否在容忍度範圍內匹配的輔助函數
 
 2. 偵測語音訊息元素：
    - 主要方法：尋找具有 role="slider" 和 aria-label="音訊滑桿" 的元素
@@ -64,7 +64,7 @@ Manifest 配置包含：
        - 將秒轉換為毫秒
        - 檢查元素是否已經有 data-voice-message-id 屬性
        - 如果沒有 ID：
-         * 先檢查 voiceMessages.byDuration 是否有待處理的項目匹配此持續時間
+         * 先檢查 voiceMessages 中是否有待處理的項目匹配此持續時間（使用 isDurationMatch 函數）
          * 如果有待處理項目：
            - 取得待處理項目的 ID 和下載 URL
            - 將待處理項目的 ID 設置為元素的 data-voice-message-id 屬性
@@ -73,13 +73,11 @@ Manifest 配置包含：
            - 為元素生成唯一 ID：voice-msg-{timestamp}-{隨機字串}
            - 將 ID 設置為元素的 data-voice-message-id 屬性
            - 呼叫 registerVoiceMessageElement 函數：
-             * 在 voiceMessages.byId 中建立新項目，包含：
+             * 在 voiceMessages.items 中建立新項目，包含：
                - element: DOM 元素參考
-               - durationSec: 持續時間（秒）
-               - durationMs: 持續時間（毫秒）
+               - durationMs: 持續時間（毫秒，從秒轉換而來）
                - downloadUrl: null（尚未知道）
                - timestamp: 當前時間戳
-             * 在 voiceMessages.byDuration 中更新索引
 
 3. 設置 MutationObserver 偵測動態載入的內容：
    - 監聽 document.body 的變化
@@ -96,20 +94,19 @@ Manifest 配置包含：
      * last-modified：提取語音訊息的建立時間
      * 格式範例：Wed, 19 Mar 2025 14:04:40 GMT
    - 呼叫 registerDownloadUrl 函數：
-     * 檢查 voiceMessages.byDuration 是否已有非待處理的元素匹配此持續時間
+     * 使用 isDurationMatch 函數檢查 voiceMessages.items 中是否有匹配此持續時間的元素
      * 如果有匹配元素：
-       - 更新所有匹配元素的 downloadUrl 屬性
+       - 更新匹配元素的 downloadUrl 和 lastModified 屬性
      * 如果沒有匹配元素：
        - 生成唯一 ID：voice-msg-{timestamp}-{隨機字串}
        - 建立一個待處理項目，包含：
          * element: null
          * durationMs: 持續時間（毫秒）
-         * durationSec: 持續時間（秒）
          * downloadUrl: 下載 URL
          * timestamp: 當前時間戳
          * lastModified: 語音訊息的建立時間（從 last-modified 標頭提取）
-         * isPending: true  // 使用屬性標記狀態，而非 ID 前綴
-       - 將待處理項目加入 byId 和 byDuration 索引中
+         * isPending: true  // 使用屬性標記狀態
+       - 將待處理項目加入 items 索引中
 
 5. 處理右鍵點擊事件：
    - 監聽 document 的 contextmenu 事件
@@ -127,7 +124,7 @@ Manifest 配置包含：
        - 如果沒有 ID：
          * 從 aria-valuemax 屬性提取持續時間（秒）
          * 轉換為毫秒
-         * 從 voiceMessages.byDuration 查找對應的元素 ID
+         * 使用 isDurationMatch 函數在 voiceMessages.items 中查找匹配的元素
          * 如果有多個匹配，選擇時間戳最近的
        - 取得下載 URL 和 lastModified 資訊
        - 發送訊息到背景腳本，包含：
@@ -137,22 +134,31 @@ Manifest 配置包含：
          - lastModified: 語音訊息的建立時間（如果有）
 
 6. 輔助函數：
+   - isDurationMatch(duration1Ms, duration2Ms, toleranceMs = 5)：
+     * 判斷兩個持續時間是否在容忍度範圍內匹配
+     * 計算兩個持續時間的差值，檢查是否小於等於容忍度
+     * 返回布林值表示是否匹配
    - registerVoiceMessageElement(element, durationSec)：
      * 註冊語音訊息元素
+     * 將秒轉換為毫秒
      * 建立元素資料並更新索引
-   - registerDownloadUrl(durationMs, url)：
+   - registerDownloadUrl(durationMs, url, lastModified)：
      * 註冊下載 URL
-     * 如果有匹配元素，直接更新元素的 downloadUrl
+     * 使用 isDurationMatch 函數尋找匹配元素
+     * 如果有匹配元素，直接更新元素的 downloadUrl 和 lastModified
      * 如果沒有匹配元素，建立待處理項目並標記為 isPending
-   - findPendingItemByDuration(durationMs)：
-     * 在 byDuration 索引中尋找指定持續時間的元素 ID
-     * 遍歷所有匹配的 ID，檢查 isPending 屬性
-     * 返回待處理項目的 ID 或 null
-   - getDownloadUrlForElement(element)：
-     * 根據元素查找對應的下載 URL
+   - findItemByDuration(durationMs, toleranceMs = 5)：
+     * 遍歷 items 中的所有項目，使用 isDurationMatch 函數尋找匹配項
+     * 返回匹配項或 null
+   - findPendingItemByDuration(durationMs, toleranceMs = 5)：
+     * 遍歷 items 中的所有項目，使用 isDurationMatch 函數尋找匹配的待處理項目
+     * 返回待處理項目或 null
+   - getDownloadInfoForElement(element)：
+     * 根據元素的 data-voice-message-id 屬性查找對應的項目
+     * 返回下載 URL 和 lastModified 資訊
 
 7. 初始化腳本：
-   - 建立 voiceMessages 資料結構
+   - 建立 voiceMessages 資料結構，包含 items Map 和 isDurationMatch 函數
    - 執行語音訊息偵測
    - 設置 MutationObserver
    - 設置網路請求攔截
