@@ -1,32 +1,40 @@
 {
   "manifest_version": 3,
-  "name": "Voice message downloader on facebook / messenger",
-  "description": "Voice message downloader on facebook / messenger",
+  "name": "Facebook Messenger 語音訊息下載器",
+  "description": "為 Facebook Messenger 和 Facebook 網站的語音訊息提供下載功能",
   "version": "1.0.0",
 
-  "permissions": ["activeTab"],
+  "permissions": ["activeTab", "contextMenus", "downloads"],
+  "host_permissions": ["*://*.facebook.com/*", "*://*.messenger.com/*"],
   "action": {
-    "default_popup": "popup.html",
     "default_icon": {
-      "16": "images/icon-16.png",
-      "32": "images/icon-32.png",
-      "48": "images/icon-48.png",
-      "128": "images/icon-128.png"
+      "16": "assets/icons/icon-16.png",
+      "32": "assets/icons/icon-32.png",
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
     }
   },
   "icons": {
-    "16": "images/icon-16.png",
-    "32": "images/icon-32.png",
-    "48": "images/icon-48.png",
-    "128": "images/icon-128.png"
+    "16": "assets/icons/icon-16.png",
+    "32": "assets/icons/icon-32.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "matches": ["*://*.facebook.com/*", "*://*.messenger.com/*"],
+      "js": ["scripts/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["scripts/*"],
+      "matches": ["*://*.facebook.com/*", "*://*.messenger.com/*"]
     }
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "scripts/background.js",
+    "type": "module"
   }
 }

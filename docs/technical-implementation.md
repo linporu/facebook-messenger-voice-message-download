@@ -39,12 +39,12 @@ extension/scripts/
 ### 2. 背景腳本部分
 
 ```
-extension/
-├── background.js               # 主要背景腳本，負責初始化和協調
-└── background/
-    ├── menu-manager.js         # 右鍵選單管理
-    ├── download-manager.js     # 下載處理
-    └── message-handler.js      # 訊息處理
+extension/scripts/
+├── background/                 # 背景腳本模組
+│   ├── menu-manager.js         # 右鍵選單管理
+│   ├── download-manager.js     # 下載處理
+│   └── message-handler.js      # 訊息處理
+└── background.js               # 主要背景腳本，負責初始化和協調
 ```
 
 ## 核心組件
