@@ -51,15 +51,36 @@ function extractDurationFromUrl(url) {
   
   console.log('[DEBUG-NETWORK] 嘗試從 URL 提取持續時間:', url.substring(0, 100));
   
-  // 嘗試從 URL 中提取持續時間
-  // 格式範例：...duration=30999...
-  const durationMatch = url.match(/[?&]duration=(\d+)/);
-  if (durationMatch && durationMatch[1]) {
-    const durationMs = parseInt(durationMatch[1], 10);
-    console.log('[DEBUG-NETWORK] 從 URL 匹配到持續時間:', durationMs);
+  // 嘗試多種可能的 URL 格式
+  
+  // 格式範例 1：...audioclip-1742393117000-30999.mp4...
+  // 這是 Facebook Messenger 語音訊息的常見格式
+  const audioclipMatch = url.match(/audioclip-\d+-([0-9]+)\.mp4/);
+  if (audioclipMatch && audioclipMatch[1]) {
+    const durationMs = parseInt(audioclipMatch[1], 10);
+    console.log('[DEBUG-NETWORK] 從 URL audioclip 格式匹配到持續時間:', durationMs);
     return isNaN(durationMs) ? null : durationMs;
   }
   
+  // 格式範例 2：...duration=30999...
+  // 這是一些 API 回應中可能的格式
+  const durationMatch = url.match(/[?&]duration=(\d+)/);
+  if (durationMatch && durationMatch[1]) {
+    const durationMs = parseInt(durationMatch[1], 10);
+    console.log('[DEBUG-NETWORK] 從 URL 參數匹配到持續時間:', durationMs);
+    return isNaN(durationMs) ? null : durationMs;
+  }
+  
+  // 格式範例 3：...length=30999...
+  // 這是另一種可能的格式
+  const lengthMatch = url.match(/[?&]length=(\d+)/);
+  if (lengthMatch && lengthMatch[1]) {
+    const durationMs = parseInt(lengthMatch[1], 10);
+    console.log('[DEBUG-NETWORK] 從 URL length 參數匹配到持續時間:', durationMs);
+    return isNaN(durationMs) ? null : durationMs;
+  }
+  
+  console.log('[DEBUG-NETWORK] 無法從 URL 提取持續時間');
   return null;
 }
 

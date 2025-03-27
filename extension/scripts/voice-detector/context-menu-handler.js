@@ -124,17 +124,50 @@ function sendRightClickMessage(elementId, downloadUrl, lastModified) {
     lastModified
   };
   
+  console.log('[DEBUG] 準備發送訊息到背景腳本:', message);
+  
   // 使用 window.sendToBackground 發送訊息
   if (window.sendToBackground) {
-    window.sendToBackground(message);
+    try {
+      // 添加錯誤處理
+      window.sendToBackground(message);
+      console.log('[DEBUG] 訊息已發送到背景腳本');
+    } catch (error) {
+      console.error('[DEBUG] 發送訊息到背景腳本時發生錯誤:', error);
+      
+      // 如果使用 sendToBackground 失敗，嘗試使用 chrome.runtime.sendMessage
+      if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+        try {
+          chrome.runtime.sendMessage(message, response => {
+            console.log('[DEBUG] chrome.runtime.sendMessage 回應:', response);
+          });
+          console.log('[DEBUG] 已使用 chrome.runtime.sendMessage 發送訊息');
+        } catch (chromeError) {
+          console.error('[DEBUG] 使用 chrome.runtime.sendMessage 發生錯誤:', chromeError);
+        }
+      }
+    }
   } else {
-    // 如果沒有 sendToBackground 函數，則直接輸出訊息
-    console.warn('無法發送訊息到背景腳本，sendToBackground 函數不存在');
+    // 如果沒有 sendToBackground 函數，嘗試使用 chrome.runtime.sendMessage
+    console.warn('[DEBUG] sendToBackground 函數不存在，嘗試使用 chrome.runtime.sendMessage');
+    
+    if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+      try {
+        chrome.runtime.sendMessage(message, response => {
+          console.log('[DEBUG] chrome.runtime.sendMessage 回應:', response);
+        });
+        console.log('[DEBUG] 已使用 chrome.runtime.sendMessage 發送訊息');
+      } catch (error) {
+        console.error('[DEBUG] 使用 chrome.runtime.sendMessage 發生錯誤:', error);
+      }
+    } else {
+      console.error('[DEBUG] 無法發送訊息到背景腳本，所有可用的方法都失敗');
+    }
   }
   
   console.log('發送右鍵點擊訊息', {
     elementId,
-    downloadUrl,
+    downloadUrl: downloadUrl ? (downloadUrl.substring(0, 50) + '...') : null,
     lastModified
   });
 }
