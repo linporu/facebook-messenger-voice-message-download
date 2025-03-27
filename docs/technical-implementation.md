@@ -50,8 +50,9 @@ Manifest 配置包含：
 偽代碼：
 
 1. 初始化：
-   - 建立 audioMap 用於儲存持續時間和 URL 的對應關係
-   - 建立 voiceMessageRegistry 使用 Map 數據結構追蹤所有語音訊息元素
+   - 建立單一資料結構 voiceMessages：
+     * byId: 以元素 ID 為鍵的 Map，儲存完整語音訊息資料
+     * byDuration: 以持續時間（毫秒）為鍵的 Map，值為元素 ID 集合
 
 2. 偵測語音訊息元素：
    - 主要方法：尋找具有 role="slider" 和 aria-label="音訊滑桿" 的元素
@@ -61,8 +62,24 @@ Manifest 配置包含：
      * 從 aria-valuemax 屬性提取持續時間（秒）
      * 如果持續時間是有效數字：
        - 將秒轉換為毫秒
-       - 為元素生成唯一 ID（如果尚未有）：voice-msg-{timestamp}-{隨機字串}
-       - 將元素註冊到 voiceMessageRegistry 中
+       - 檢查元素是否已經有 data-voice-message-id 屬性
+       - 如果沒有 ID：
+         * 先檢查 voiceMessages.byDuration 是否有待處理的項目匹配此持續時間
+         * 如果有待處理項目：
+           - 取得待處理項目的 ID 和下載 URL
+           - 將待處理項目的 ID 設置為元素的 data-voice-message-id 屬性
+           - 更新待處理項目，將 element 設置為當前元素，移除 isPending 標記
+         * 如果沒有待處理項目：
+           - 為元素生成唯一 ID：voice-msg-{timestamp}-{隨機字串}
+           - 將 ID 設置為元素的 data-voice-message-id 屬性
+           - 呼叫 registerVoiceMessageElement 函數：
+             * 在 voiceMessages.byId 中建立新項目，包含：
+               - element: DOM 元素參考
+               - durationSec: 持續時間（秒）
+               - durationMs: 持續時間（毫秒）
+               - downloadUrl: null（尚未知道）
+               - timestamp: 當前時間戳
+             * 在 voiceMessages.byDuration 中更新索引
 
 3. 設置 MutationObserver 偵測動態載入的內容：
    - 監聽 document.body 的變化
@@ -72,10 +89,27 @@ Manifest 配置包含：
 4. 攔截網路請求以獲取音訊 URL：
    - 代理 window.fetch 函數
    - 檢查請求 URL 是否包含 ".mp4" 和 "audioclip"
-   - 從 content-disposition 標頭中提取持續時間
-   - 格式範例：attachment; filename=audioclip-1742393117000-30999.mp4
-   - 上述正確的持續時間為 .mp4 前面的 30999（毫秒）
-   - 將持續時間（毫秒）和 URL 存入 audioMap
+   - 從回應標頭中提取重要資訊：
+     * content-disposition：提取持續時間
+     * 格式範例：attachment; filename=audioclip-1742393117000-30999.mp4
+     * 上述正確的持續時間為 .mp4 前面的 30999（毫秒）
+     * last-modified：提取語音訊息的建立時間
+     * 格式範例：Wed, 19 Mar 2025 14:04:40 GMT
+   - 呼叫 registerDownloadUrl 函數：
+     * 檢查 voiceMessages.byDuration 是否已有非待處理的元素匹配此持續時間
+     * 如果有匹配元素：
+       - 更新所有匹配元素的 downloadUrl 屬性
+     * 如果沒有匹配元素：
+       - 生成唯一 ID：voice-msg-{timestamp}-{隨機字串}
+       - 建立一個待處理項目，包含：
+         * element: null
+         * durationMs: 持續時間（毫秒）
+         * durationSec: 持續時間（秒）
+         * downloadUrl: 下載 URL
+         * timestamp: 當前時間戳
+         * lastModified: 語音訊息的建立時間（從 last-modified 標頭提取）
+         * isPending: true  // 使用屬性標記狀態，而非 ID 前綴
+       - 將待處理項目加入 byId 和 byDuration 索引中
 
 5. 處理右鍵點擊事件：
    - 監聽 document 的 contextmenu 事件
@@ -88,16 +122,36 @@ Manifest 配置包含：
        - 如果找到匹配元素，記錄並停止遍歷
        - 否則移動到父元素繼續檢查
      * 如果找到語音訊息元素：
-       - 從 aria-valuemax 屬性提取持續時間（秒）
-       - 轉換為毫秒以用於查找對應的 URL
-       - 從 audioMap 中查找對應的下載 URL
+       - 檢查元素是否有 data-voice-message-id 屬性
+       - 如果有 ID，直接從 voiceMessages.byId 獲取資料
+       - 如果沒有 ID：
+         * 從 aria-valuemax 屬性提取持續時間（秒）
+         * 轉換為毫秒
+         * 從 voiceMessages.byDuration 查找對應的元素 ID
+         * 如果有多個匹配，選擇時間戳最近的
+       - 取得下載 URL
        - 發送訊息到背景腳本，包含：
          - action: 'rightClickOnVoiceMessage'
-         - durationMs: 持續時間（毫秒）
          - elementId: 元素 ID
          - downloadUrl: 下載 URL
 
-6. 初始化腳本：
+6. 輔助函數：
+   - registerVoiceMessageElement(element, durationSec)：
+     * 註冊語音訊息元素
+     * 建立元素資料並更新索引
+   - registerDownloadUrl(durationMs, url)：
+     * 註冊下載 URL
+     * 如果有匹配元素，直接更新元素的 downloadUrl
+     * 如果沒有匹配元素，建立待處理項目並標記為 isPending
+   - findPendingItemByDuration(durationMs)：
+     * 在 byDuration 索引中尋找指定持續時間的元素 ID
+     * 遍歷所有匹配的 ID，檢查 isPending 屬性
+     * 返回待處理項目的 ID 或 null
+   - getDownloadUrlForElement(element)：
+     * 根據元素查找對應的下載 URL
+
+7. 初始化腳本：
+   - 建立 voiceMessages 資料結構
    - 執行語音訊息偵測
    - 設置 MutationObserver
    - 設置網路請求攔截
@@ -128,7 +182,7 @@ Manifest 配置包含：
 
 3. 監聽來自內容腳本的訊息：
    - 當收到 action='rightClickOnVoiceMessage' 訊息時：
-     * 儲存訊息中的資訊（tabId, durationMs, elementId, downloadUrl）
+     * 儲存訊息中的資訊（tabId, elementId, downloadUrl）
      * 如果有有效的 downloadUrl，將右鍵選單項設為可見
      * 否則記錄找不到下載 URL 的訊息
 
@@ -138,13 +192,14 @@ Manifest 配置包含：
 
 5. 處理右鍵選單點擊事件：
    - 當選單項 'downloadVoiceMessage' 被點擊且有有效的 lastRightClickedInfo 時：
-     * 生成包含時間戳和持續時間的檔案名稱
-     * 格式：voice-message-{timestamp}-{durationMs}ms.mp4
+     * 生成有意義的檔案名稱，優先使用 lastModified 時間（如果有）
+     * 格式：voice-message-{YYYY-MM-DD-HH-mm-ss}.mp4
+     * 如果沒有 lastModified，則使用當前時間戳
      * 使用 chrome.downloads.download API 下載檔案
      * 設置下載參數：
        - url: 下載 URL
        - filename: 生成的檔案名稱
-       - saveAs: false（可設為 true 讓用戶選擇儲存位置）
+       - saveAs: true（讓用戶選擇儲存位置）
      * 記錄下載訊息或錯誤訊息
 ```
 
@@ -160,11 +215,14 @@ Manifest 配置包含：
 
 **Challenge**: Reliably connecting the UI element (with duration in seconds) to the correct download URL (with duration in milliseconds).
 
-**Solution**: Create a mapping system that:
+**Solution**: 使用單一資料結構設計：
 
-1. Extracts duration from the filename in the content-disposition header
-2. Stores the URL with the duration as key
-3. When a user right-clicks, converts the aria-valuemax (seconds) to milliseconds and looks up the URL
+1. 建立 voiceMessages 資料結構，包含兩個索引：
+   - byId：以元素 ID 為鍵，儲存完整語音訊息資料
+   - byDuration：以持續時間為鍵，儲存元素 ID 集合
+2. 當偵測到語音訊息元素時，註冊到資料結構並檢查是否有待處理的 URL
+3. 當攔截到網路請求時，註冊 URL 並檢查是否有匹配的元素
+4. 處理時序獨立性，不論元素或 URL 先被發現都能正確匹配
 
 ### 3. Dynamic Content Loading
 
