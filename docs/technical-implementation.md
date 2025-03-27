@@ -49,12 +49,20 @@ Manifest 配置包含：
 ```
 偽代碼：
 
-1. 初始化：
-   - 建立單一資料結構 voiceMessages：
+1. 初始化 (content.js)：
+   - 導入所需模組：
+     * import { initDomDetector, detectVoiceMessages } from './voice-detector/dom-detector.js';
+     * import { initNetworkInterceptor } from './voice-detector/network-interceptor.js';
+     * import { initContextMenuHandler } from './voice-detector/context-menu-handler.js';
+     * import { createDataStore } from './voice-detector/data-store.js';
+   - 建立單一資料結構 voiceMessages = createDataStore()：
      * items: 以元素 ID 為鍵的 Map，儲存完整語音訊息資料
      * isDurationMatch: 判斷兩個持續時間是否在容忍度範圍內匹配的輔助函數
 
-2. 偵測語音訊息元素：
+2. 偵測語音訊息元素 (dom-detector.js)：
+   - 導出函數：
+     * export function initDomDetector(voiceMessages)
+     * export function detectVoiceMessages(voiceMessages)
    - 主要方法：尋找具有 role="slider" 和 aria-label="音訊滑桿" 的元素
    - 次要方法：尋找具有 role="button" 和 aria-label="播放" 的元素
    - 對每個找到的元素：
@@ -79,12 +87,15 @@ Manifest 配置包含：
                - downloadUrl: null（尚未知道）
                - timestamp: 當前時間戳
 
-3. 設置 MutationObserver 偵測動態載入的內容：
+3. 設置 MutationObserver 偵測動態載入的內容 (dom-detector.js)：
+   - 在 initDomDetector 函數中實現
    - 監聽 document.body 的變化
-   - 當有新節點添加時，執行語音訊息偵測函數
+   - 當有新節點添加時，執行 detectVoiceMessages 函數
    - 設置監聽選項：childList=true, subtree=true
 
-4. 攔截網路請求以獲取音訊 URL：
+4. 攔截網路請求以獲取音訊 URL (network-interceptor.js)：
+   - 導出函數：
+     * export function initNetworkInterceptor(voiceMessages)
    - 代理 window.fetch 函數
    - 檢查請求 URL 是否包含 ".mp4" 和 "audioclip"
    - 從回應標頭中提取重要資訊：
@@ -108,16 +119,20 @@ Manifest 配置包含：
          * isPending: true  // 使用屬性標記狀態
        - 將待處理項目加入 items 索引中
 
-5. 處理右鍵點擊事件：
+5. 處理右鍵點擊事件 (context-menu-handler.js)：
+   - 導出函數：
+     * export function initContextMenuHandler(voiceMessages)
    - 監聽 document 的 contextmenu 事件
    - 當事件觸發時：
      * 記錄實際點擊的元素（event.target）
-     * 從事件目標開始向上遍歷 DOM 樹：
-       - 檢查當前元素是否有 data-voice-message-element="true" 屬性
-       - 檢查元素是否匹配 div[role="slider"][aria-label="音訊滑桿"]
-       - 檢查元素是否在語音訊息容器內（使用 closest 方法）
-       - 如果找到匹配元素，記錄並停止遍歷
-       - 否則移動到父元素繼續檢查
+     * 使用自上而下的查找策略尋找語音訊息元素：
+       - 檢查點擊元素自身是否為語音訊息元素（已標記或有特定屬性）
+       - 在點擊元素內部查找語音訊息相關元素：
+         * 查找 div[role="slider"][aria-label="音訊滑桿"]
+         * 查找 div[role="button"][aria-label="播放"] 包含特定 SVG 路徑
+       - 如果在內部找不到，再向上遍歷 DOM 樹尋找可能的容器元素
+       - 對每個潛在容器元素，向下查找語音訊息相關元素
+       - 如果以上方法都失敗，嘗試基於位置的查找（尋找頁面上最接近點擊位置的語音訊息元素）
      * 如果找到語音訊息元素：
        - 檢查元素是否有 data-voice-message-id 屬性
        - 如果有 ID，直接從 voiceMessages.byId 獲取資料
@@ -134,35 +149,53 @@ Manifest 配置包含：
          - lastModified: 語音訊息的建立時間（如果有）
 
 6. 輔助函數：
-   - isDurationMatch(duration1Ms, duration2Ms, toleranceMs = 5)：
+   - findVoiceMessageElement(clickedElement) (context-menu-handler.js)：
+     * 使用多種方法尋找語音訊息元素
+     * 先在點擊元素內部向下查找
+     * 如果失敗，再向上遍歷 DOM 樹
+     * 最後嘗試基於位置的查找
+     * 返回找到的語音訊息元素或 null
+
+   - isPotentialVoiceMessageContainer(element) (context-menu-handler.js)：
+     * 檢查元素是否為潛在的語音訊息容器
+     * 檢查特定的類別組合和元素特徵
+     * 返回布林值表示是否為潛在容器
+
+   - getSliderElement(element) (context-menu-handler.js)：
+     * 從元素獲取滑桿元素
+     * 如果元素自身是滑桿，直接返回
+     * 如果是播放按鈕，查找相關的滑桿
+     * 在元素內部查找滑桿
+
+   - isDurationMatch(duration1Ms, duration2Ms, toleranceMs = 5) (data-store.js)：
      * 判斷兩個持續時間是否在容忍度範圍內匹配
      * 計算兩個持續時間的差值，檢查是否小於等於容忍度
      * 返回布林值表示是否匹配
-   - registerVoiceMessageElement(element, durationSec)：
+   - registerVoiceMessageElement(element, durationSec) (data-store.js)：
      * 註冊語音訊息元素
      * 將秒轉換為毫秒
      * 建立元素資料並更新索引
-   - registerDownloadUrl(durationMs, url, lastModified)：
+   - registerDownloadUrl(durationMs, url, lastModified) (data-store.js)：
      * 註冊下載 URL
      * 使用 isDurationMatch 函數尋找匹配元素
      * 如果有匹配元素，直接更新元素的 downloadUrl 和 lastModified
      * 如果沒有匹配元素，建立待處理項目並標記為 isPending
-   - findItemByDuration(durationMs, toleranceMs = 5)：
+   - findItemByDuration(durationMs, toleranceMs = 5) (data-store.js)：
      * 遍歷 items 中的所有項目，使用 isDurationMatch 函數尋找匹配項
      * 返回匹配項或 null
-   - findPendingItemByDuration(durationMs, toleranceMs = 5)：
+   - findPendingItemByDuration(durationMs, toleranceMs = 5) (data-store.js)：
      * 遍歷 items 中的所有項目，使用 isDurationMatch 函數尋找匹配的待處理項目
      * 返回待處理項目或 null
-   - getDownloadInfoForElement(element)：
+   - getDownloadInfoForElement(element) (data-store.js)：
      * 根據元素的 data-voice-message-id 屬性查找對應的項目
      * 返回下載 URL 和 lastModified 資訊
 
-7. 初始化腳本：
-   - 建立 voiceMessages 資料結構，包含 items Map 和 isDurationMatch 函數
-   - 執行語音訊息偵測
-   - 設置 MutationObserver
-   - 設置網路請求攔截
-   - 在 DOM 完全載入時啟動
+7. 初始化腳本 (content.js)：
+   - 建立 voiceMessages 資料結構：const voiceMessages = createDataStore();
+   - 執行語音訊息偵測：initDomDetector(voiceMessages);
+   - 設置網路請求攔截：initNetworkInterceptor(voiceMessages);
+   - 設置右鍵選單處理：initContextMenuHandler(voiceMessages);
+   - 在 DOM 完全載入時啟動：document.addEventListener('DOMContentLoaded', ...);
 ```
 
 ### 3. 背景腳本 (background.js)
@@ -175,7 +208,10 @@ Manifest 配置包含：
 ```
 偽代碼：
 
-1. 初始化右鍵選單：
+1. 初始化右鍵選單 (menu-manager.js)：
+   - 導出函數：
+     * export function initContextMenu()
+     * export function updateContextMenuVisibility(visible)
    - 在擴充功能安裝時建立右鍵選單項
    - 設置選單項屬性：
      * id: 'downloadVoiceMessage'
@@ -184,21 +220,27 @@ Manifest 配置包含：
      * documentUrlPatterns: ['*://*.facebook.com/*', '*://*.messenger.com/*']
      * visible: false  // 初始不可見
 
-2. 儲存右鍵點擊資訊：
+2. 儲存右鍵點擊資訊 (background.js)：
    - 建立 lastRightClickedInfo 變數儲存右鍵點擊的語音訊息資訊
 
-3. 監聽來自內容腳本的訊息：
+3. 監聽來自內容腳本的訊息 (message-handler.js)：
+   - 導出函數：
+     * export function initMessageHandler()
    - 當收到 action='rightClickOnVoiceMessage' 訊息時：
      * 儲存訊息中的資訊（tabId, elementId, downloadUrl, lastModified）
-     * 如果有有效的 downloadUrl，將右鍵選單項設為可見
+     * 如果有有效的 downloadUrl，將右鍵選單項設為可見 (使用 menu-manager.js 的 updateContextMenuVisibility)
      * 否則記錄找不到下載 URL 的訊息
 
-4. 處理右鍵選單關閉事件：
-   - 當右鍵選單關閉時，將選單項再次設為不可見
+4. 處理右鍵選單關閉事件 (menu-manager.js)：
+   - 當右鍵選單關閉時，將選單項再次設為不可見 (使用 updateContextMenuVisibility(false))
    - 清除儲存的右鍵點擊資訊
 
-5. 處理右鍵選單點擊事件：
+5. 處理右鍵選單點擊事件 (download-manager.js)：
+   - 導出函數：
+     * export function initDownloadManager()
+     * export function downloadVoiceMessage(url, lastModified)
    - 當選單項 'downloadVoiceMessage' 被點擊且有有效的 lastRightClickedInfo 時：
+     * 呼叫 downloadVoiceMessage 函數，傳入 URL 和 lastModified
      * 生成有意義的檔案名稱，優先使用 lastModified 時間（如果有）：
        - 如果有 lastModified：
          * 解析 lastModified 字串為日期物件
@@ -365,29 +407,32 @@ extension/
 
 ```javascript
 // content.js - 主要入口點，負責初始化和協調
-import { initDomDetector, detectVoiceMessages } from './voice-detector/dom-detector.js';
-import { initNetworkInterceptor } from './voice-detector/network-interceptor.js';
-import { initContextMenuHandler } from './voice-detector/context-menu-handler.js';
-import { createDataStore } from './voice-detector/data-store.js';
+import {
+  initDomDetector,
+  detectVoiceMessages,
+} from "./voice-detector/dom-detector.js";
+import { initNetworkInterceptor } from "./voice-detector/network-interceptor.js";
+import { initContextMenuHandler } from "./voice-detector/context-menu-handler.js";
+import { createDataStore } from "./voice-detector/data-store.js";
 
 // 初始化資料存儲
 const voiceMessages = createDataStore();
 
 // 初始化各模組
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   // 初始化 DOM 偵測器
   initDomDetector(voiceMessages);
-  
+
   // 初始化網路請求攔截
   initNetworkInterceptor(voiceMessages);
-  
+
   // 初始化右鍵選單處理
   initContextMenuHandler(voiceMessages);
-  
+
   // 執行初始偵測
   detectVoiceMessages();
-  
-  console.log('Facebook Messenger 語音訊息下載器已啟動');
+
+  console.log("Facebook Messenger 語音訊息下載器已啟動");
 });
 ```
 
@@ -395,32 +440,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ```javascript
 // data-store.js - 負責管理語音訊息資料
-import { generateVoiceMessageId } from '../utils/id-generator.js';
+import { generateVoiceMessageId } from "../utils/id-generator.js";
 
 export function createDataStore() {
   return {
     byId: new Map(),
     byDuration: new Map(),
-    
+
     // 註冊語音訊息元素
     registerVoiceMessageElement(element, durationSec) {
       // 實作...
     },
-    
+
     // 註冊下載 URL
     registerDownloadUrl(durationMs, url, lastModified) {
       // 實作...
     },
-    
+
     // 尋找待處理項目
     findPendingItemByDuration(durationMs) {
       // 實作...
     },
-    
+
     // 根據元素獲取下載 URL
     getDownloadInfoForElement(element) {
       // 實作...返回 {downloadUrl, lastModified}
-    }
+    },
   };
 }
 ```
@@ -429,7 +474,7 @@ export function createDataStore() {
 
 ```javascript
 // dom-detector.js - 負責偵測 DOM 中的語音訊息元素
-import { extractDurationFromElement } from '../utils/dom-utils.js';
+import { extractDurationFromElement } from "../utils/dom-utils.js";
 
 let voiceMessages;
 
@@ -455,7 +500,7 @@ function processVoiceMessageElement(element) {
 
 ```javascript
 // network-interceptor.js - 負責攔截網路請求
-import { parseLastModified } from '../utils/time-utils.js';
+import { parseLastModified } from "../utils/time-utils.js";
 
 let voiceMessages;
 
@@ -481,7 +526,7 @@ function processAudioResponse(url, response) {
 
 ```javascript
 // context-menu-handler.js - 負責處理右鍵選單事件
-import { findVoiceMessageElement } from '../utils/dom-utils.js';
+import { findVoiceMessageElement } from "../utils/dom-utils.js";
 
 let voiceMessages;
 
@@ -507,9 +552,9 @@ function sendRightClickInfo(element, downloadInfo) {
 
 ```javascript
 // background.js - 主要背景腳本
-import { initMenuManager } from './background/menu-manager.js';
-import { initDownloadManager } from './background/download-manager.js';
-import { initMessageHandler } from './background/message-handler.js';
+import { initMenuManager } from "./background/menu-manager.js";
+import { initDownloadManager } from "./background/download-manager.js";
+import { initMessageHandler } from "./background/message-handler.js";
 
 // 初始化右鍵選單管理
 const menuManager = initMenuManager();
@@ -520,7 +565,7 @@ const downloadManager = initDownloadManager();
 // 初始化訊息處理
 initMessageHandler(menuManager, downloadManager);
 
-console.log('Facebook Messenger 語音訊息下載器背景腳本已啟動');
+console.log("Facebook Messenger 語音訊息下載器背景腳本已啟動");
 ```
 
 ### 4. 輔助函數模組
@@ -563,4 +608,3 @@ export function generateVoiceMessageId() {
   // 生成語音訊息 ID...
 }
 ```
-
