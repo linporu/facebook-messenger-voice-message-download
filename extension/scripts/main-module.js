@@ -62,10 +62,21 @@ function initialize() {
   
   // 向內容腳本發送訊息的輔助函數
   window.sendToBackground = function(message) {
-    window.postMessage({
-      type: 'FROM_VOICE_MESSAGE_DOWNLOADER',
-      message: message
-    }, '*');
+    try {
+      console.log('[DEBUG-MAIN] 準備發送訊息到背景腳本:', message);
+      
+      // 使用 postMessage 發送訊息
+      window.postMessage({
+        type: 'FROM_VOICE_MESSAGE_DOWNLOADER',
+        message: message
+      }, '*');
+      
+      console.log('[DEBUG-MAIN] 訊息已發送到背景腳本');
+      return true;
+    } catch (error) {
+      console.error('[DEBUG-MAIN] 發送訊息到背景腳本時發生錯誤:', error);
+      return false;
+    }
   };
   
   console.log('Facebook Messenger 語音訊息下載器模組已啟動');
