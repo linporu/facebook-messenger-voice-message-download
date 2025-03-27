@@ -239,27 +239,34 @@ function handleCompletedRequest(voiceMessages, details) {
         contentType,
         contentLength,
       });
-      
+
       // 輸出 voiceMessages 的狀態
       console.log("[DEBUG-WEBREQUEST] 註冊前 voiceMessages 狀態:", {
         exists: !!voiceMessages,
-        mapSize: voiceMessages ? voiceMessages.items.size : 0
+        mapSize: voiceMessages ? voiceMessages.items.size : 0,
       });
 
       // 註冊下載 URL
-      const id = registerDownloadUrl(voiceMessages, durationMs, url, lastModified);
+      const id = registerDownloadUrl(
+        voiceMessages,
+        durationMs,
+        url,
+        lastModified
+      );
       console.log("[DEBUG-WEBREQUEST] 註冊下載 URL 完成，返回 ID:", id);
-      
+
       // 輸出註冊後的狀態
       console.log("[DEBUG-WEBREQUEST] 註冊後 voiceMessages 狀態:", {
         mapSize: voiceMessages.items.size,
         hasItem: voiceMessages.items.has(id),
-        item: voiceMessages.items.get(id) ? {
-          id: voiceMessages.items.get(id).id,
-          durationMs: voiceMessages.items.get(id).durationMs,
-          hasDownloadUrl: !!voiceMessages.items.get(id).downloadUrl,
-          isPending: !!voiceMessages.items.get(id).isPending
-        } : null
+        item: voiceMessages.items.get(id)
+          ? {
+              id: voiceMessages.items.get(id).id,
+              durationMs: voiceMessages.items.get(id).durationMs,
+              hasDownloadUrl: !!voiceMessages.items.get(id).downloadUrl,
+              isPending: !!voiceMessages.items.get(id).isPending,
+            }
+          : null,
       });
     } else if (
       contentLength &&
