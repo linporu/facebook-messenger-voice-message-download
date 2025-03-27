@@ -3,10 +3,16 @@
  * 使用 Chrome 的 webRequest API 監控網路請求，用於攔截語音訊息的下載 URL
  */
 
+// 添加調試資訊
+console.log("[DEBUG-WEBREQUEST] 開始導入 extractDurationFunctions.js");
+
 import {
   extractDurationFromContentDisposition,
   extractDurationFromUrl,
+  isLikelyAudioFile,
 } from "../voice-detector/extractDurationFunctions.js";
+
+console.log("[DEBUG-WEBREQUEST] 導入 extractDurationFunctions.js 成功");
 import { registerDownloadUrl } from "../voice-detector/data-store.js";
 
 // 語音訊息 URL 的匹配模式
@@ -15,7 +21,8 @@ const VOICE_MESSAGE_URL_PATTERNS = [
   "*://*.facebook.com/*",
   "*://*.fbcdn.net/*",
   "*://*.messenger.com/*",
-  "*://*.cdninstagram.com/*", // 新增 Instagram CDN
+  "*://*.cdninstagram.com/*", // Instagram CDN
+  "*://*.fbsbx.com/*", // Facebook 安全瀏覽擴展域名
 ];
 
 // 可能的音訊檔案關鍵字
@@ -30,6 +37,8 @@ const AUDIO_KEYWORDS = [
   "sound",
   "/v/t",
   "/o1/v/t2/f2/m69/",
+  "/o1/v/t62/", // 新的 Facebook 語音訊息格式
+  "/o2/v/", // 另一種可能的格式
   "attachment",
   "clip",
   "message",
@@ -42,120 +51,162 @@ const AUDIO_KEYWORDS = [
  * @param {Object} voiceMessages - 語音訊息資料存儲
  */
 export function initWebRequestInterceptor(voiceMessages) {
-  console.log("[DEBUG-BACKGROUND] 初始化 webRequest 攔截器");
+  try {
+    console.log("[DEBUG-BACKGROUND] 初始化 webRequest 攔截器");
+    console.log(
+      "[DEBUG-WEBREQUEST] voiceMessages 參數:",
+      voiceMessages ? "存在" : "不存在"
+    );
 
-  // 記錄初始化時間，用於調試
-  const initTime = new Date().toISOString();
-  console.log(`[DEBUG-WEBREQUEST] 攔截器初始化時間: ${initTime}`);
+    // 記錄初始化時間，用於調試
+    const initTime = new Date().toISOString();
+    console.log(`[DEBUG-WEBREQUEST] 攔截器初始化時間: ${initTime}`);
 
-  // 監聽完成的請求
-  chrome.webRequest.onCompleted.addListener(
-    (details) => {
-      handleCompletedRequest(voiceMessages, details);
-    },
-    { urls: VOICE_MESSAGE_URL_PATTERNS },
-    ["responseHeaders"]
-  );
-
-  // 監聽請求頭，用於獲取更多資訊
-  chrome.webRequest.onHeadersReceived.addListener(
-    (details) => {
-      handleHeadersReceived(voiceMessages, details);
-    },
-    { urls: VOICE_MESSAGE_URL_PATTERNS },
-    ["responseHeaders"]
-  );
-
-  // 監聽所有請求，用於調試
-  chrome.webRequest.onBeforeRequest.addListener(
-    (details) => {
-      // 只調試記錄 GET 請求
-      if (details.method === "GET") {
-        const url = details.url;
-
-        // 檢查是否可能是音訊檔案
-        const isPossibleAudio = AUDIO_KEYWORDS.some((keyword) =>
-          url.includes(keyword)
-        );
-
-        // 檢查是否是 XHR 或 fetch 請求
-        const isXhrOrFetch =
-          details.type === "xmlhttprequest" || details.type === "fetch";
-
-        // 檢查是否是媒體請求
-        const isMedia = details.type === "media" || details.type === "object";
-
-        // 判斷是否應該記錄此請求
-        const shouldLog =
-          isPossibleAudio || isMedia || (isXhrOrFetch && Math.random() < 0.1);
-
-        if (shouldLog) {
-          console.log("[DEBUG-WEBREQUEST-ALL] 攔截到請求:", {
-            url: url.substring(0, 150) + "...",
-            type: details.type,
-            method: details.method,
-            tabId: details.tabId,
-            frameId: details.frameId,
-            isPossibleAudio,
-            isXhrOrFetch,
-            isMedia,
-            timestamp: new Date().toISOString(),
-          });
-        }
-      }
-      return { cancel: false };
-    },
-    {
-      urls: [
-        "*://*.facebook.com/*",
-        "*://*.fbcdn.net/*",
-        "*://*.messenger.com/*",
-        "*://*.cdninstagram.com/*",
-      ],
+    if (!chrome || !chrome.webRequest) {
+      console.error("[DEBUG-WEBREQUEST] chrome.webRequest API 不可用");
+      return;
     }
-  );
 
-  // 監聽請求頭發送
-  chrome.webRequest.onSendHeaders.addListener(
-    (details) => {
-      if (details.method === "GET") {
-        const url = details.url;
-        const isPossibleAudio = AUDIO_KEYWORDS.some((keyword) =>
-          url.includes(keyword)
-        );
+    console.log("[DEBUG-WEBREQUEST] chrome.webRequest API 可用");
 
-        if (isPossibleAudio) {
-          console.log("[DEBUG-WEBREQUEST-SEND-HEADERS] 發送請求頭:", {
-            url: url.substring(0, 100) + "...",
-            headers: details.requestHeaders
-              ?.map((h) => `${h.name}: ${h.value?.substring(0, 50)}`)
-              .join("\n"),
-            timestamp: new Date().toISOString(),
-          });
+    // 監聽完成的請求
+    chrome.webRequest.onCompleted.addListener(
+      (details) => {
+        handleCompletedRequest(voiceMessages, details);
+      },
+      { urls: VOICE_MESSAGE_URL_PATTERNS },
+      ["responseHeaders"]
+    );
+
+    // 監聽請求頭，用於獲取更多資訊
+    chrome.webRequest.onHeadersReceived.addListener(
+      (details) => {
+        handleHeadersReceived(voiceMessages, details);
+      },
+      { urls: VOICE_MESSAGE_URL_PATTERNS },
+      ["responseHeaders"]
+    );
+
+    // 監聽所有請求，用於調試和攔截
+    chrome.webRequest.onBeforeRequest.addListener(
+      (details) => {
+        // 只處理 GET 請求
+        if (details.method === "GET") {
+          const url = details.url;
+
+          // 檢查是否可能是音訊檔案
+          const isPossibleAudio = AUDIO_KEYWORDS.some((keyword) =>
+            url.includes(keyword)
+          );
+
+          // 檢查是否是 XHR 或 fetch 請求
+          const isXhrOrFetch =
+            details.type === "xmlhttprequest" || details.type === "fetch";
+
+          // 檢查是否是媒體請求
+          const isMedia = details.type === "media" || details.type === "object";
+
+          // 判斷是否應該記錄此請求
+          const shouldLog =
+            isPossibleAudio || isMedia || (isXhrOrFetch && Math.random() < 0.1);
+
+          if (shouldLog) {
+            console.log("[DEBUG-WEBREQUEST-ALL] 攔截到請求:", {
+              url: url.substring(0, 150) + "...",
+              type: details.type,
+              method: details.method,
+              tabId: details.tabId,
+              frameId: details.frameId,
+              isPossibleAudio,
+              isXhrOrFetch,
+              isMedia,
+              timestamp: new Date().toISOString(),
+            });
+
+            // 如果是明確的音訊檔案，立即處理
+            if (isPossibleAudio && (isMedia || isXhrOrFetch)) {
+              // 在 onBeforeRequest 階段無法獲取標頭，但可以先記錄 URL
+              console.log("[DEBUG-WEBREQUEST] 提前偵測到可能的語音訊息請求:", {
+                url: url.substring(0, 150) + "...",
+                type: details.type,
+                method: details.method,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          }
         }
+        return { cancel: false };
+      },
+      {
+        urls: VOICE_MESSAGE_URL_PATTERNS,
       }
-      return { requestHeaders: details.requestHeaders };
-    },
-    { urls: VOICE_MESSAGE_URL_PATTERNS },
-    ["requestHeaders"]
-  );
+    );
 
-  // 監聽內容腳本的訊息
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === "contentScriptInitialized") {
-      console.log("[DEBUG-BACKGROUND] 收到內容腳本初始化訊息:", {
-        url: message.url,
-        tabId: sender.tab?.id,
-      });
-      sendResponse({ success: true });
-    }
-    return true;
-  });
+    // 監聽請求頭發送
+    chrome.webRequest.onSendHeaders.addListener(
+      (details) => {
+        if (details.method === "GET") {
+          const url = details.url;
+          const isPossibleAudio = AUDIO_KEYWORDS.some((keyword) =>
+            url.includes(keyword)
+          );
 
-  console.log(
-    "[DEBUG-BACKGROUND] webRequest 攔截器已初始化，監聽以下 URL 模式:",
-    VOICE_MESSAGE_URL_PATTERNS
-  );
+          if (isPossibleAudio) {
+            console.log("[DEBUG-WEBREQUEST-SEND-HEADERS] 發送請求頭:", {
+              url: url.substring(0, 100) + "...",
+              type: details.type,
+              headers: details.requestHeaders
+                ?.map((h) => `${h.name}: ${h.value?.substring(0, 50)}`)
+                .join("\n"),
+              timestamp: new Date().toISOString(),
+            });
+
+            // 檢查 Accept 標頭是否與音訊/視訊相關
+            const acceptHeader = details.requestHeaders?.find(
+              (h) => h.name.toLowerCase() === "accept"
+            );
+            if (
+              acceptHeader &&
+              (acceptHeader.value.includes("audio") ||
+                acceptHeader.value.includes("video") ||
+                acceptHeader.value.includes("*/*"))
+            ) {
+              console.log("[DEBUG-WEBREQUEST] 請求標頭顯示可能是媒體請求:", {
+                url: url.substring(0, 100) + "...",
+                accept: acceptHeader.value,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          }
+        }
+        return { requestHeaders: details.requestHeaders };
+      },
+      { urls: VOICE_MESSAGE_URL_PATTERNS },
+      ["requestHeaders"]
+    );
+
+    // 監聽內容腳本的訊息
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.action === "contentScriptInitialized") {
+        console.log("[DEBUG-BACKGROUND] 收到內容腳本初始化訊息:", {
+          url: message.url,
+          tabId: sender.tab?.id,
+        });
+        sendResponse({ success: true });
+      }
+      return true;
+    });
+
+    console.log(
+      "[DEBUG-BACKGROUND] webRequest 攔截器已初始化，監聽以下 URL 模式:",
+      VOICE_MESSAGE_URL_PATTERNS
+    );
+  } catch (error) {
+    console.error(
+      "[DEBUG-WEBREQUEST] 初始化 webRequest 攔截器時發生錯誤:",
+      error
+    );
+  }
 }
 
 /**
@@ -169,14 +220,9 @@ function handleCompletedRequest(voiceMessages, details) {
     const url = details.url;
 
     // 檢查是否可能是語音訊息請求
-    const isPossibleAudio =
-      url.includes(".mp4") ||
-      url.includes(".mp3") ||
-      url.includes(".aac") ||
-      url.includes(".m4a") ||
-      url.includes("/audioclip-") ||
-      (url.includes("fbcdn.net") && url.includes("/v/t")) ||
-      (url.includes("fbcdn.net") && url.includes("/o1/v/t2/f2/m69/"));
+    const isPossibleAudio = AUDIO_KEYWORDS.some((keyword) =>
+      url.includes(keyword)
+    );
 
     if (isPossibleAudio) {
       console.log("[DEBUG-WEBREQUEST] 偵測到可能的語音訊息請求:", {
@@ -249,7 +295,10 @@ function handleCompletedRequest(voiceMessages, details) {
       });
 
       registerDownloadUrl(voiceMessages, durationMs, url, lastModified);
-    } else if (contentLength && isPossibleAudio) {
+    } else if (
+      contentLength &&
+      (isPossibleAudio || isLikelyAudioFile(contentType, url))
+    ) {
       // 如果無法提取持續時間，但確定是音訊檔案，嘗試使用檔案大小估計
       const fileSizeBytes = parseInt(contentLength, 10);
       if (!isNaN(fileSizeBytes)) {
@@ -265,6 +314,7 @@ function handleCompletedRequest(voiceMessages, details) {
           fileSizeBytes,
           estimatedDurationMs,
           contentType,
+          isLikelyAudio: isLikelyAudioFile(contentType, url),
         });
 
         // 使用估計的持續時間註冊 URL
@@ -334,11 +384,7 @@ function handleHeadersReceived(voiceMessages, details) {
     }
 
     // 檢查是否為音訊檔案
-    const isAudioFile =
-      contentType &&
-      (contentType.includes("audio/") ||
-        contentType.includes("video/") ||
-        contentType.includes("application/octet-stream"));
+    const isAudioFile = isLikelyAudioFile(contentType, url);
 
     // 檢查是否是媒體請求
     const isMedia = details.type === "media" || details.type === "object";
