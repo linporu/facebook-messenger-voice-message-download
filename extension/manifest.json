@@ -9,7 +9,8 @@
     "*://*.facebook.com/*",
     "*://*.messenger.com/*",
     "*://*.fbcdn.net/*",
-    "*://*.cdninstagram.com/*"
+    "*://*.cdninstagram.com/*",
+    "*://*.fbsbx.com/*"
   ],
   "action": {
     "default_icon": {
