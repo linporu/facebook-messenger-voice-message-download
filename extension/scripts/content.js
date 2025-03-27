@@ -31,12 +31,16 @@ if (!isSupportedSite) {
     
     // 處理來自主模組的訊息
     if (event.data.type && event.data.type === 'FROM_VOICE_MESSAGE_DOWNLOADER') {
-      chrome.runtime.sendMessage(event.data.message);
+      console.log('[DEBUG-CONTENT] 收到主模組訊息，轉發到背景腳本:', event.data.message);
+      chrome.runtime.sendMessage(event.data.message, function(response) {
+        console.log('[DEBUG-CONTENT] 背景腳本回應:', response);
+      });
     }
   });
   
   // 將來自背景腳本的訊息轉發到主模組
   chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+    console.log('[DEBUG-CONTENT] 收到背景腳本訊息，轉發到主模組:', message);
     window.postMessage({
       type: 'FROM_VOICE_MESSAGE_DOWNLOADER_BACKGROUND',
       message: message
