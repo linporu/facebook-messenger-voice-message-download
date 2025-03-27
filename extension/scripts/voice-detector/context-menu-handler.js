@@ -9,19 +9,16 @@ import {
   getSliderFromPlayButton,
 } from "../utils/dom-utils.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
-import { getDownloadUrlForElement, findItemByDuration } from "./data-store.js";
 
 /**
  * 初始化右鍵選單處理器
- *
- * @param {Object} voiceMessages - 語音訊息資料存儲
  */
-export function initContextMenuHandler(voiceMessages) {
+export function initContextMenuHandler() {
   console.log("初始化右鍵選單處理器");
 
   // 監聽 contextmenu 事件
   document.addEventListener("contextmenu", (event) => {
-    handleContextMenu(event, voiceMessages);
+    handleContextMenu(event);
   });
 }
 
@@ -29,9 +26,8 @@ export function initContextMenuHandler(voiceMessages) {
  * 處理右鍵選單事件
  *
  * @param {MouseEvent} event - 滑鼠事件
- * @param {Object} voiceMessages - 語音訊息資料存儲
  */
-function handleContextMenu(event, voiceMessages) {
+function handleContextMenu(event) {
   // 記錄實際點擊的元素
   const clickedElement = event.target;
   console.log("[DEBUG] 右鍵點擊元素:", clickedElement);
@@ -63,55 +59,20 @@ function handleContextMenu(event, voiceMessages) {
   const id = sliderElement.getAttribute("data-voice-message-id");
   console.log("[DEBUG] 語音訊息 ID:", id);
 
-  if (id) {
-    // 如果有 ID，獲取下載 URL
-    const urlInfo = getDownloadUrlForElement(voiceMessages, sliderElement);
-    console.log("[DEBUG] 獲取下載 URL 結果:", urlInfo);
+  // 從滑桿元素獲取持續時間
+  const durationSec = getDurationFromSlider(sliderElement);
+  console.log("[DEBUG] 從滑桿獲取的持續時間(秒):", durationSec);
 
-    if (urlInfo && urlInfo.downloadUrl) {
-      // 發送訊息到背景腳本
-      console.log("[DEBUG] 準備發送右鍵點擊訊息 (通過 ID)");
-      sendRightClickMessage(id, urlInfo.downloadUrl, urlInfo.lastModified);
-    } else {
-      console.log("[DEBUG] 未找到匹配的下載 URL");
-    }
+  if (durationSec !== null) {
+    // 將秒轉換為毫秒
+    const durationMs = secondsToMilliseconds(durationSec);
+    console.log("[DEBUG] 持續時間(毫秒):", durationMs);
+
+    // 發送訊息到背景腳本，包含元素 ID 和持續時間
+    console.log("[DEBUG] 準備發送右鍵點擊訊息");
+    sendRightClickMessage(id, null, null, durationMs);
   } else {
-    // 如果沒有 ID，從滑桿元素獲取持續時間
-    const durationSec = getDurationFromSlider(sliderElement);
-    console.log("[DEBUG] 從滑桿獲取的持續時間(秒):", durationSec);
-
-    if (durationSec !== null) {
-      // 將秒轉換為毫秒
-      const durationMs = secondsToMilliseconds(durationSec);
-      console.log("[DEBUG] 持續時間(毫秒):", durationMs);
-      console.log("[DEBUG] voiceMessages 資料:", {
-        itemsCount: voiceMessages.items.size,
-      });
-
-      let found = false;
-      // 在 voiceMessages 中查找匹配的項目
-      const matchedItem = findItemByDuration(voiceMessages, durationMs);
-      console.log("[DEBUG] 查找匹配項目結果:", matchedItem);
-
-      if (matchedItem && matchedItem.downloadUrl) {
-        // 發送訊息到背景腳本
-        console.log(
-          "[DEBUG] 找到匹配項目，準備發送右鍵點擊訊息 (通過持續時間)"
-        );
-        sendRightClickMessage(
-          matchedItem.id,
-          matchedItem.downloadUrl,
-          matchedItem.lastModified
-        );
-        found = true;
-      }
-
-      if (!found) {
-        console.log("[DEBUG] 未找到匹配的語音訊息項目");
-      }
-    } else {
-      console.log("[DEBUG] 無法從滑桿獲取持續時間");
-    }
+    console.log("[DEBUG] 無法從滑桿獲取持續時間");
   }
 }
 
@@ -121,14 +82,21 @@ function handleContextMenu(event, voiceMessages) {
  * @param {string} elementId - 元素 ID
  * @param {string} downloadUrl - 下載 URL
  * @param {string} [lastModified] - Last-Modified 標頭值
+ * @param {number} [durationMs] - 持續時間（毫秒）
  */
-function sendRightClickMessage(elementId, downloadUrl, lastModified) {
+function sendRightClickMessage(
+  elementId,
+  downloadUrl,
+  lastModified,
+  durationMs
+) {
   // 準備訊息物件
   const message = {
     action: "rightClickOnVoiceMessage",
     elementId,
     downloadUrl,
     lastModified,
+    durationMs,
   };
 
   console.log("[DEBUG] 準備發送訊息到背景腳本:", message);
