@@ -13,7 +13,7 @@ import {
 } from "../voice-detector/extractDurationFunctions.js";
 
 console.log("[DEBUG-WEBREQUEST] 導入 extractDurationFunctions.js 成功");
-import { registerDownloadUrl } from "../voice-detector/data-store.js";
+import { registerDownloadUrl } from "./data-store.js";
 
 // 語音訊息 URL 的匹配模式
 const VOICE_MESSAGE_URL_PATTERNS = [
@@ -239,8 +239,28 @@ function handleCompletedRequest(voiceMessages, details) {
         contentType,
         contentLength,
       });
+      
+      // 輸出 voiceMessages 的狀態
+      console.log("[DEBUG-WEBREQUEST] 註冊前 voiceMessages 狀態:", {
+        exists: !!voiceMessages,
+        mapSize: voiceMessages ? voiceMessages.items.size : 0
+      });
 
-      registerDownloadUrl(voiceMessages, durationMs, url, lastModified);
+      // 註冊下載 URL
+      const id = registerDownloadUrl(voiceMessages, durationMs, url, lastModified);
+      console.log("[DEBUG-WEBREQUEST] 註冊下載 URL 完成，返回 ID:", id);
+      
+      // 輸出註冊後的狀態
+      console.log("[DEBUG-WEBREQUEST] 註冊後 voiceMessages 狀態:", {
+        mapSize: voiceMessages.items.size,
+        hasItem: voiceMessages.items.has(id),
+        item: voiceMessages.items.get(id) ? {
+          id: voiceMessages.items.get(id).id,
+          durationMs: voiceMessages.items.get(id).durationMs,
+          hasDownloadUrl: !!voiceMessages.items.get(id).downloadUrl,
+          isPending: !!voiceMessages.items.get(id).isPending
+        } : null
+      });
     } else if (
       contentLength &&
       (isPossibleAudio || isLikelyAudioFile(contentType, url))
