@@ -8,10 +8,7 @@ import { initMenuManager } from "./background/menu-manager.js";
 import { initDownloadManager } from "./background/download-manager.js";
 import { initMessageHandler } from "./background/message-handler.js";
 import { initWebRequestInterceptor } from "./background/web-request-interceptor.js";
-import {
-  createDataStore,
-  cleanupOldItems,
-} from "./voice-detector/data-store.js";
+import { createDataStore, cleanupOldItems } from "./background/data-store.js";
 
 // 添加調試資訊
 console.log("[DEBUG-BACKGROUND] 背景腳本開始加載");

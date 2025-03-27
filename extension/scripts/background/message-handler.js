@@ -8,19 +8,29 @@ import {
   downloadVoiceMessage,
 } from "./download-manager.js";
 
-// 共享的語音訊息資料存儲
+import { createDataStore } from "./data-store.js";
+
+// 使用單例模式獲取語音訊息資料存儲
 let voiceMessagesStore = null;
 
 /**
  * 初始化訊息處理器
  *
- * @param {Object} voiceMessages - 語音訊息資料存儲
+ * @param {Object} [voiceMessages] - 語音訊息資料存儲（可選，如果未提供則使用單例）
  */
 export function initMessageHandler(voiceMessages) {
-  console.log("初始化訊息處理器");
+  console.log("[DEBUG-MESSAGEHANDLER] 初始化訊息處理器");
 
-  // 儲存語音訊息資料存儲的引用
-  voiceMessagesStore = voiceMessages;
+  // 如果提供了 voiceMessages 參數，使用它；否則使用單例
+  if (voiceMessages) {
+    console.log("[DEBUG-MESSAGEHANDLER] 使用提供的 voiceMessages 實例");
+    voiceMessagesStore = voiceMessages;
+  } else {
+    console.log("[DEBUG-MESSAGEHANDLER] 使用單例 voiceMessages 實例");
+    voiceMessagesStore = createDataStore();
+  }
+  
+  console.log("[DEBUG-MESSAGEHANDLER] voiceMessagesStore 初始化完成，Map 大小:", voiceMessagesStore.items.size);
 
   // 監聽來自內容腳本的訊息
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -55,42 +65,59 @@ export function initMessageHandler(voiceMessages) {
  */
 function handleRightClickMessage(message, sender, sendResponse) {
   const { elementId, downloadUrl, lastModified, durationMs } = message;
-  console.log("[DEBUG-BACKGROUND] 處理右鍵點擊訊息詳細資訊:", {
+  console.log("[DEBUG-MESSAGEHANDLER] 處理右鍵點擊訊息詳細資訊:", {
     elementId,
     downloadUrl: downloadUrl ? downloadUrl.substring(0, 50) + "..." : null,
     lastModified,
     durationMs,
   });
 
+  // 確保我們有 voiceMessagesStore
+  if (!voiceMessagesStore) {
+    console.log("[DEBUG-MESSAGEHANDLER] voiceMessagesStore 不存在，創建單例");
+    voiceMessagesStore = createDataStore();
+  }
+
+  console.log("[DEBUG-MESSAGEHANDLER] voiceMessagesStore Map 大小:", voiceMessagesStore.items.size);
+  
+  // 輸出所有項目的持續時間和下載 URL 狀態，用於調試
+  console.log("[DEBUG-MESSAGEHANDLER] 所有項目的持續時間和下載 URL 狀態:");
+  for (const [id, item] of voiceMessagesStore.items.entries()) {
+    console.log(`- ID: ${id}, 持續時間: ${item.durationMs}ms, 有URL: ${!!item.downloadUrl}, 待處理: ${!!item.isPending}`);
+  }
+
   // 如果沒有提供下載 URL，但有持續時間，嘗試從 voiceMessagesStore 中查找
-  if (!downloadUrl && durationMs && voiceMessagesStore) {
+  if (!downloadUrl && durationMs) {
     console.log(
-      "[DEBUG-BACKGROUND] 嘗試從資料存儲中查找下載 URL，持續時間:",
+      "[DEBUG-MESSAGEHANDLER] 嘗試從資料存儲中查找下載 URL，持續時間:",
       durationMs
     );
-
-    // 嘗試不同的方法從資料存儲中查找匹配的下載 URL
 
     // 方法 1: 使用 findItemByDuration 函數
     let matchingItem = null;
     if (typeof voiceMessagesStore.findItemByDuration === "function") {
-      console.log("[DEBUG-BACKGROUND] 使用 findItemByDuration 函數查找");
-      matchingItem = voiceMessagesStore.findItemByDuration(durationMs);
+      console.log("[DEBUG-MESSAGEHANDLER] 使用 findItemByDuration 函數查找");
+      matchingItem = voiceMessagesStore.findItemByDuration(voiceMessagesStore, durationMs);
+      console.log("[DEBUG-MESSAGEHANDLER] findItemByDuration 結果:", matchingItem ? "找到項目" : "未找到項目");
     }
 
     // 方法 2: 直接遍歷 items 集合
-    if (!matchingItem && voiceMessagesStore.items) {
-      console.log("[DEBUG-BACKGROUND] 直接遍歷 items 集合查找");
+    if (!matchingItem) {
+      console.log("[DEBUG-MESSAGEHANDLER] 直接遍歷 items 集合查找");
       const tolerance = 5; // 容差值（毫秒）
 
-      for (const [id, item] of voiceMessagesStore.items) {
+      for (const [id, item] of voiceMessagesStore.items.entries()) {
+        console.log(`[DEBUG-MESSAGEHANDLER] 檢查項目 ID: ${id}, 持續時間: ${item.durationMs}ms, 差值: ${Math.abs(item.durationMs - durationMs)}ms`);
+        
         if (
           item.durationMs &&
           Math.abs(item.durationMs - durationMs) <= tolerance
         ) {
           console.log(
-            "[DEBUG-BACKGROUND] 找到匹配項目，持續時間:",
-            item.durationMs
+            "[DEBUG-MESSAGEHANDLER] 找到匹配項目，持續時間:",
+            item.durationMs,
+            ", 有下載 URL:",
+            !!item.downloadUrl
           );
           matchingItem = item;
           break;
@@ -99,30 +126,32 @@ function handleRightClickMessage(message, sender, sendResponse) {
     }
 
     if (matchingItem && matchingItem.downloadUrl) {
-      console.log("[DEBUG-BACKGROUND] 在資料存儲中找到匹配的下載 URL");
+      console.log("[DEBUG-MESSAGEHANDLER] 在資料存儲中找到匹配的下載 URL:", {
+        id: matchingItem.id,
+        durationMs: matchingItem.durationMs,
+        downloadUrl: matchingItem.downloadUrl ? matchingItem.downloadUrl.substring(0, 30) + "..." : null
+      });
       message.downloadUrl = matchingItem.downloadUrl;
       message.lastModified = matchingItem.lastModified || lastModified;
     } else {
-      console.log("[DEBUG-BACKGROUND] 在資料存儲中未找到匹配的下載 URL");
+      console.log("[DEBUG-MESSAGEHANDLER] 在資料存儲中未找到匹配的下載 URL");
       // 輸出資料存儲的狀態以協助調試
-      if (voiceMessagesStore.items) {
-        console.log(
-          "[DEBUG-BACKGROUND] 資料存儲中的項目數量:",
-          voiceMessagesStore.items.size
-        );
+      console.log(
+        "[DEBUG-MESSAGEHANDLER] 資料存儲中的項目數量:",
+        voiceMessagesStore.items.size
+      );
 
-        // 輸出所有項目的持續時間以進行比較
-        const allDurations = [];
-        for (const [id, item] of voiceMessagesStore.items) {
-          if (item.durationMs) {
-            allDurations.push(item.durationMs);
-          }
+      // 輸出所有項目的持續時間以進行比較
+      const allDurations = [];
+      for (const [id, item] of voiceMessagesStore.items.entries()) {
+        if (item.durationMs) {
+          allDurations.push(item.durationMs);
         }
-        console.log(
-          "[DEBUG-BACKGROUND] 資料存儲中的所有持續時間:",
-          allDurations
-        );
       }
+      console.log(
+        "[DEBUG-MESSAGEHANDLER] 資料存儲中的所有持續時間:",
+        allDurations
+      );
     }
   }
 
@@ -131,7 +160,7 @@ function handleRightClickMessage(message, sender, sendResponse) {
   const finalLastModified = message.lastModified;
 
   if (!finalDownloadUrl) {
-    console.log("[DEBUG-BACKGROUND] 下載 URL 無效，但仍然記錄右鍵點擊資訊");
+    console.log("[DEBUG-MESSAGEHANDLER] 下載 URL 無效，但仍然記錄右鍵點擊資訊");
     // 即使沒有下載 URL，也記錄右鍵點擊的資訊，以便後續捕獲到 URL 時可以使用
     setLastRightClickedInfo({
       elementId,
@@ -149,7 +178,14 @@ function handleRightClickMessage(message, sender, sendResponse) {
   }
 
   // 設置最後一次右鍵點擊的資訊
-  console.log("[DEBUG-BACKGROUND] 設置最後一次右鍵點擊的資訊");
+  console.log("[DEBUG-MESSAGEHANDLER] 設置最後一次右鍵點擊的資訊:", {
+    elementId,
+    downloadUrl: finalDownloadUrl ? finalDownloadUrl.substring(0, 30) + "..." : null,
+    hasLastModified: !!finalLastModified,
+    tabId: sender.tab?.id,
+    durationMs
+  });
+  
   setLastRightClickedInfo({
     elementId,
     downloadUrl: finalDownloadUrl,
@@ -163,10 +199,10 @@ function handleRightClickMessage(message, sender, sendResponse) {
     success: true,
     message: "已準備好下載語音訊息",
   };
-  console.log("[DEBUG-BACKGROUND] 回應內容腳本:", response);
+  console.log("[DEBUG-MESSAGEHANDLER] 回應內容腳本:", response);
   sendResponse(response);
 
-  console.log("[DEBUG-BACKGROUND] 右鍵點擊訊息處理完成");
+  console.log("[DEBUG-MESSAGEHANDLER] 右鍵點擊訊息處理完成");
 }
 
 /**

@@ -1,6 +1,7 @@
 /**
  * data-store.js
  * 提供統一的資料結構來管理語音訊息元素和下載 URL 的對應關係
+ * 使用單例模式確保整個擴充功能中只有一個 voiceMessages 實例
  */
 
 import {
@@ -10,15 +11,26 @@ import {
 import { markAsVoiceMessageElement } from "../utils/dom-utils.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
 
+// 全域單例實例
+let voiceMessagesInstance = null;
+
 /**
- * 創建語音訊息資料存儲
+ * 創建語音訊息資料存儲（單例模式）
  * 提供單一資料結構來管理語音訊息元素和下載 URL 的對應關係
  *
  * @returns {Object} 語音訊息資料存儲
  */
 export function createDataStore() {
+  // 如果實例已存在，直接返回
+  if (voiceMessagesInstance) {
+    console.log("[DEBUG-DATASTORE] 返回現有的 voiceMessages 實例");
+    return voiceMessagesInstance;
+  }
+
+  console.log("[DEBUG-DATASTORE] 創建新的 voiceMessages 實例");
+  
   // 主要資料結構
-  const voiceMessages = {
+  voiceMessagesInstance = {
     // 以 ID 為鍵的 Map，儲存完整語音訊息資料
     items: new Map(),
 
@@ -31,7 +43,7 @@ export function createDataStore() {
     getDownloadUrlForElement,
   };
 
-  return voiceMessages;
+  return voiceMessagesInstance;
 }
 
 /**
@@ -117,10 +129,23 @@ export function registerDownloadUrl(
   downloadUrl,
   lastModified = null
 ) {
+  console.log("[DEBUG-DATASTORE] 註冊下載 URL:", {
+    durationMs,
+    downloadUrl: downloadUrl ? downloadUrl.substring(0, 50) + "..." : null,
+    lastModified,
+    mapSize: voiceMessages.items.size
+  });
+
   // 檢查是否有匹配此持續時間的元素
   for (const [id, item] of voiceMessages.items.entries()) {
     if (isDurationMatch(item.durationMs, durationMs)) {
       // 如果有匹配元素，更新它的 downloadUrl 和 lastModified
+      console.log("[DEBUG-DATASTORE] 找到匹配項目，更新 downloadUrl:", {
+        id,
+        oldUrl: item.downloadUrl ? item.downloadUrl.substring(0, 30) + "..." : null,
+        newUrl: downloadUrl ? downloadUrl.substring(0, 30) + "..." : null
+      });
+      
       item.downloadUrl = downloadUrl;
       if (lastModified) {
         item.lastModified = lastModified;
@@ -131,9 +156,14 @@ export function registerDownloadUrl(
 
   // 如果沒有匹配元素，創建一個待處理項目
   const id = generateVoiceMessageId();
+  console.log("[DEBUG-DATASTORE] 未找到匹配項目，創建新項目:", {
+    id,
+    durationMs,
+    isPending: true
+  });
 
   // 在 voiceMessages.items 中建立新項目
-  voiceMessages.items.set(id, {
+  const newItem = {
     id,
     element: null,
     durationMs,
@@ -141,6 +171,17 @@ export function registerDownloadUrl(
     lastModified,
     timestamp: Date.now(),
     isPending: true, // 使用屬性標記狀態
+  };
+  
+  voiceMessages.items.set(id, newItem);
+  
+  console.log("[DEBUG-DATASTORE] 新項目已添加，當前 Map 大小:", voiceMessages.items.size);
+  console.log("[DEBUG-DATASTORE] 新項目詳情:", {
+    id,
+    durationMs,
+    hasDownloadUrl: !!downloadUrl,
+    hasElement: !!newItem.element,
+    isPending: newItem.isPending
   });
 
   return id;
@@ -171,21 +212,65 @@ export function findPendingItemByDuration(voiceMessages, durationMs) {
  * @returns {Object|null} - 包含 downloadUrl 和 lastModified 的物件，如果找不到則返回 null
  */
 export function getDownloadUrlForElement(voiceMessages, element) {
-  if (!element) return null;
+  if (!element) {
+    console.log("[DEBUG-DATASTORE] getDownloadUrlForElement: 元素為 null");
+    return null;
+  }
 
+  console.log("[DEBUG-DATASTORE] 查找元素對應的下載 URL");
+  console.log("[DEBUG-DATASTORE] voiceMessages Map 大小:", voiceMessages.items.size);
+  
   // 檢查元素是否有 data-voice-message-id 屬性
   const id = element.getAttribute("data-voice-message-id");
+  console.log("[DEBUG-DATASTORE] 元素 ID:", id);
 
   if (id && voiceMessages.items.has(id)) {
     // 如果有 ID 且在 items 中存在，直接返回
     const item = voiceMessages.items.get(id);
+    console.log("[DEBUG-DATASTORE] 找到匹配項目:", {
+      id,
+      hasDownloadUrl: !!item.downloadUrl,
+      hasElement: !!item.element,
+      isPending: !!item.isPending
+    });
+    
     return {
       downloadUrl: item.downloadUrl,
       lastModified: item.lastModified,
     };
   }
 
+  // 如果沒有 ID 或 ID 不存在，嘗試通過持續時間查找
+  if (element.hasAttribute("aria-valuemax")) {
+    const durationSec = parseFloat(element.getAttribute("aria-valuemax"));
+    if (!isNaN(durationSec)) {
+      const durationMs = secondsToMilliseconds(durationSec);
+      console.log("[DEBUG-DATASTORE] 嘗試通過持續時間查找:", durationMs, "ms");
+      
+      // 輸出所有項目的持續時間，用於調試
+      console.log("[DEBUG-DATASTORE] 所有項目的持續時間:");
+      for (const [itemId, item] of voiceMessages.items.entries()) {
+        console.log(`- ID: ${itemId}, 持續時間: ${item.durationMs}ms, 有URL: ${!!item.downloadUrl}`);
+      }
+      
+      const item = findItemByDuration(voiceMessages, durationMs);
+      if (item && item.downloadUrl) {
+        console.log("[DEBUG-DATASTORE] 通過持續時間找到匹配項目:", {
+          id: item.id,
+          durationMs: item.durationMs,
+          hasDownloadUrl: !!item.downloadUrl
+        });
+        
+        return {
+          downloadUrl: item.downloadUrl,
+          lastModified: item.lastModified,
+        };
+      }
+    }
+  }
+
   // 如果沒有 ID 或 ID 不存在，返回 null
+  console.log("[DEBUG-DATASTORE] 未找到匹配的下載 URL");
   return null;
 }
 
