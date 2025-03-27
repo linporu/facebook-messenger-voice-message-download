@@ -127,8 +127,15 @@ async function processAudioResponse(voiceMessages, url, response) {
       const result = registerDownloadUrl(voiceMessages, durationMs, url, lastModified);
       console.log('[DEBUG-NETWORK] 註冊下載 URL 結果:', result);
       
+      // 輸出更詳細的資料狀態，包括所有項目的詳細資訊
       console.log('[DEBUG-NETWORK] voiceMessages 資料狀態:', {
-        itemsCount: voiceMessages.items.size
+        itemsCount: voiceMessages.items.size,
+        items: Array.from(voiceMessages.items.entries()).map(([id, item]) => ({
+          id,
+          durationMs: item.durationMs,
+          hasDownloadUrl: !!item.downloadUrl,
+          isPending: !!item.isPending
+        }))
       });
       
       console.log('攔截到語音訊息下載 URL', {
