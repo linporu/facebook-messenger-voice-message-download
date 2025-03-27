@@ -31,8 +31,21 @@ export function initNetworkInterceptor(voiceMessages) {
         status: response.status
       });
       
-      if (url && url.includes('.mp4') && url.includes('audioclip')) {
-        console.log('[DEBUG-NETWORK] 偵測到語音訊息請求:', url.substring(0, 100));
+      // 檢查是否為語音訊息請求
+      const isOldFormat = url && url.includes('.mp4') && url.includes('audioclip');
+      const isNewFormat = url && (
+        // 新的 Facebook 語音訊息 URL 格式
+        (url.includes('scontent') && url.includes('/o1/v/t2/f2/m69/')) ||
+        // 可能的其他格式
+        (url.includes('fbcdn.net') && url.includes('/v/t'))
+      );
+      
+      if (isOldFormat || isNewFormat) {
+        console.log('[DEBUG-NETWORK] 偵測到語音訊息請求:', {
+          url: url.substring(0, 100),
+          isOldFormat,
+          isNewFormat
+        });
         
         // 複製 response 以便我們可以讀取它
         const responseClone = response.clone();
@@ -59,17 +72,50 @@ async function processAudioResponse(voiceMessages, url, response) {
   try {
     // 從回應標頭中提取重要資訊
     const contentDisposition = response.headers.get('content-disposition');
+    const contentType = response.headers.get('content-type');
     const lastModified = response.headers.get('last-modified');
+    const contentLength = response.headers.get('content-length');
     
     console.log('[DEBUG-NETWORK] 音訊回應標頭:', {
       contentDisposition,
+      contentType,
+      contentLength,
       lastModified
     });
     
+    // 嘗試從標頭中提取持續時間
+    let durationMs = null;
+    
     // 從 content-disposition 提取持續時間
-    // 格式範例：attachment; filename=audioclip-1742393117000-30999.mp4
-    const durationMs = extractDurationFromContentDisposition(contentDisposition);
+    if (contentDisposition) {
+      durationMs = extractDurationFromContentDisposition(contentDisposition);
+    }
+    
+    // 如果無法從 content-disposition 提取，嘗試從 URL 提取
+    if (!durationMs) {
+      durationMs = extractDurationFromUrl(url);
+    }
+    
     console.log('[DEBUG-NETWORK] 提取的持續時間(毫秒):', durationMs);
+    
+    // 如果仍然無法提取持續時間，但我們確定這是語音訊息，則使用估計的持續時間
+    if (!durationMs && isLikelyAudioFile(contentType, url)) {
+      // 如果有 content-length，可以使用它來估計持續時間
+      // 假設平均比特率為 32 kbps
+      if (contentLength) {
+        const fileSizeBytes = parseInt(contentLength, 10);
+        if (!isNaN(fileSizeBytes)) {
+          // 根據檔案大小估計持續時間（毫秒）
+          // 公式：持續時間 = 檔案大小（位元） / 比特率（每秒位元）
+          durationMs = Math.round((fileSizeBytes * 8) / (32 * 1024) * 1000);
+          console.log('[DEBUG-NETWORK] 根據檔案大小估計的持續時間:', durationMs);
+        }
+      } else {
+        // 如果無法估計，使用一個預設值
+        durationMs = 30000; // 預設 30 秒
+        console.log('[DEBUG-NETWORK] 使用預設持續時間:', durationMs);
+      }
+    }
     
     if (durationMs) {
       // 註冊下載 URL
@@ -91,7 +137,10 @@ async function processAudioResponse(voiceMessages, url, response) {
         lastModified
       });
     } else {
-      console.log('[DEBUG-NETWORK] 無法提取持續時間從 content-disposition:', contentDisposition);
+      console.log('[DEBUG-NETWORK] 無法提取持續時間:', {
+        contentDisposition,
+        url: url.substring(0, 100) + '...'
+      });
     }
   } catch (error) {
     console.error('[DEBUG-NETWORK] 處理音訊回應時發生錯誤:', error);
