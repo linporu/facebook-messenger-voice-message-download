@@ -5,7 +5,12 @@
   "version": "1.0.0",
 
   "permissions": ["activeTab", "contextMenus", "downloads", "webRequest"],
-  "host_permissions": ["*://*.facebook.com/*", "*://*.messenger.com/*"],
+  "host_permissions": [
+    "*://*.facebook.com/*",
+    "*://*.messenger.com/*",
+    "*://*.fbcdn.net/*",
+    "*://*.cdninstagram.com/*"
+  ],
   "action": {
     "default_icon": {
       "16": "assets/icons/icon-16.png",
