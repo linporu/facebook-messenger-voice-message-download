@@ -4,7 +4,7 @@
   "description": "為 Facebook Messenger 和 Facebook 網站的語音訊息提供下載功能",
   "version": "1.0.0",
 
-  "permissions": ["activeTab", "contextMenus", "downloads"],
+  "permissions": ["activeTab", "contextMenus", "downloads", "webRequest"],
   "host_permissions": ["*://*.facebook.com/*", "*://*.messenger.com/*"],
   "action": {
     "default_icon": {

@@ -6,12 +6,20 @@
 import { initMenuManager } from "./background/menu-manager.js";
 import { initDownloadManager } from "./background/download-manager.js";
 import { initMessageHandler } from "./background/message-handler.js";
+import { initWebRequestInterceptor } from "./background/web-request-interceptor.js";
+import {
+  createDataStore,
+  cleanupOldItems,
+} from "./voice-detector/data-store.js";
 
 /**
  * 主要初始化函數
  */
 function initialize() {
   console.log("初始化背景腳本");
+
+  // 創建語音訊息資料存儲
+  const voiceMessages = createDataStore();
 
   // 初始化右鍵選單管理器
   initMenuManager();
@@ -20,7 +28,15 @@ function initialize() {
   initDownloadManager();
 
   // 初始化訊息處理器
-  initMessageHandler();
+  initMessageHandler(voiceMessages);
+
+  // 初始化 webRequest 攔截器
+  initWebRequestInterceptor(voiceMessages);
+
+  // 設置定期清理過期項目
+  setInterval(() => {
+    cleanupOldItems(voiceMessages);
+  }, 30 * 60 * 1000); // 每 30 分鐘清理一次
 
   console.log("背景腳本初始化完成");
 }
