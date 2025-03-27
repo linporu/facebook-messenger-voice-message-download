@@ -7,6 +7,8 @@
 import {
   createDataStore,
   cleanupOldItems,
+  registerVoiceMessageElement,
+  getDownloadUrlForElement,
 } from "./voice-detector/data-store.js";
 import { initDomDetector } from "./voice-detector/dom-detector.js";
 import { initContextMenuHandler } from "./voice-detector/context-menu-handler.js";
@@ -36,6 +38,8 @@ function initialize() {
   // 初始化右鍵選單處理器
   initContextMenuHandler(voiceMessages);
 
+  console.log("[DEBUG-MAIN] 使用 webRequest API 模式，不再使用 fetch 代理攝截");
+
   // 通知背景腳本內容腳本已初始化
   // 注意：在頁面上下文中不能直接使用 chrome API，改用 window.postMessage
   window.postMessage(
@@ -44,6 +48,7 @@ function initialize() {
       message: {
         action: "contentScriptInitialized",
         url: window.location.href,
+        hostname: window.location.hostname,
       },
     },
     "*"
