@@ -4,12 +4,6 @@
  * 這個檔案會以 ES6 模組的方式載入，可以使用 import/export 語法
  */
 
-import {
-  createDataStore,
-  cleanupOldItems,
-  registerVoiceMessageElement,
-  getDownloadUrlForElement,
-} from "./voice-detector/data-store.js";
 import { initDomDetector } from "./voice-detector/dom-detector.js";
 import { initContextMenuHandler } from "./voice-detector/context-menu-handler.js";
 
@@ -29,14 +23,11 @@ function initialize() {
     return;
   }
 
-  // 創建語音訊息資料存儲
-  const voiceMessages = createDataStore();
+  // 初始化 DOM 偵測器 - 不再傳遞 voiceMessages 參數
+  initDomDetector();
 
-  // 初始化 DOM 偵測器
-  initDomDetector(voiceMessages);
-
-  // 初始化右鍵選單處理器
-  initContextMenuHandler(voiceMessages);
+  // 初始化右鍵選單處理器 - 不再傳遞 voiceMessages 參數
+  initContextMenuHandler();
 
   console.log("[DEBUG-MAIN] 使用 webRequest API 模式，不再使用 fetch 代理攝截");
 
@@ -54,10 +45,7 @@ function initialize() {
     "*"
   );
 
-  // 設置定期清理過期項目
-  setInterval(() => {
-    cleanupOldItems(voiceMessages);
-  }, 30 * 60 * 1000); // 每 30 分鐘清理一次
+  // 不再需要定期清理過期項目，這將由背景腳本處理
 
   // 設置訊息監聽器，處理與內容腳本的通訊
   window.addEventListener("message", function (event) {
