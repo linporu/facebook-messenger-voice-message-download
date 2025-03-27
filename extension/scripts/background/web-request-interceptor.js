@@ -70,6 +70,7 @@ export function initWebRequestInterceptor(voiceMessages) {
     console.log("[DEBUG-WEBREQUEST] chrome.webRequest API 可用");
 
     // 監聽完成的請求
+    console.log("[DEBUG-WEBREQUEST] 設置 onCompleted 監聽器");
     chrome.webRequest.onCompleted.addListener(
       (details) => {
         handleCompletedRequest(voiceMessages, details);
@@ -77,8 +78,10 @@ export function initWebRequestInterceptor(voiceMessages) {
       { urls: VOICE_MESSAGE_URL_PATTERNS },
       ["responseHeaders"]
     );
+    console.log("[DEBUG-WEBREQUEST] onCompleted 監聽器設置完成");
 
     // 監聽請求頭，用於獲取更多資訊
+    console.log("[DEBUG-WEBREQUEST] 設置 onHeadersReceived 監聽器");
     chrome.webRequest.onHeadersReceived.addListener(
       (details) => {
         handleHeadersReceived(voiceMessages, details);
@@ -86,53 +89,28 @@ export function initWebRequestInterceptor(voiceMessages) {
       { urls: VOICE_MESSAGE_URL_PATTERNS },
       ["responseHeaders"]
     );
+    console.log("[DEBUG-WEBREQUEST] onHeadersReceived 監聽器設置完成");
 
     // 監聽所有請求，用於調試和攔截
+    console.log("[DEBUG-WEBREQUEST] 設置 onBeforeRequest 監聽器");
     chrome.webRequest.onBeforeRequest.addListener(
       (details) => {
         // 只處理 GET 請求
         if (details.method === "GET") {
           const url = details.url;
 
-          // 檢查是否可能是音訊檔案
-          const isPossibleAudio = AUDIO_KEYWORDS.some((keyword) =>
-            url.includes(keyword)
-          );
-
-          // 檢查是否是 XHR 或 fetch 請求
-          const isXhrOrFetch =
-            details.type === "xmlhttprequest" || details.type === "fetch";
-
-          // 檢查是否是媒體請求
-          const isMedia = details.type === "media" || details.type === "object";
-
-          // 判斷是否應該記錄此請求
-          const shouldLog =
-            isPossibleAudio || isMedia || (isXhrOrFetch && Math.random() < 0.1);
-
-          if (shouldLog) {
-            console.log("[DEBUG-WEBREQUEST-ALL] 攔截到請求:", {
+          // 放寬過濾條件，記錄所有可能的語音訊息檔案
+          if (
+            url.includes(".mp4") ||
+            url.includes("audio") ||
+            url.includes("voice") ||
+            url.includes("fbsbx.com")
+          ) {
+            console.log("[DEBUG-WEBREQUEST] 提前偵測到可能的語音訊息請求:", {
               url: url.substring(0, 150) + "...",
               type: details.type,
               method: details.method,
-              tabId: details.tabId,
-              frameId: details.frameId,
-              isPossibleAudio,
-              isXhrOrFetch,
-              isMedia,
-              timestamp: new Date().toISOString(),
             });
-
-            // 如果是明確的音訊檔案，立即處理
-            if (isPossibleAudio && (isMedia || isXhrOrFetch)) {
-              // 在 onBeforeRequest 階段無法獲取標頭，但可以先記錄 URL
-              console.log("[DEBUG-WEBREQUEST] 提前偵測到可能的語音訊息請求:", {
-                url: url.substring(0, 150) + "...",
-                type: details.type,
-                method: details.method,
-                timestamp: new Date().toISOString(),
-              });
-            }
           }
         }
         return { cancel: false };
@@ -141,44 +119,12 @@ export function initWebRequestInterceptor(voiceMessages) {
         urls: VOICE_MESSAGE_URL_PATTERNS,
       }
     );
+    console.log("[DEBUG-WEBREQUEST] onBeforeRequest 監聽器設置完成");
 
     // 監聽請求頭發送
     chrome.webRequest.onSendHeaders.addListener(
       (details) => {
-        if (details.method === "GET") {
-          const url = details.url;
-          const isPossibleAudio = AUDIO_KEYWORDS.some((keyword) =>
-            url.includes(keyword)
-          );
-
-          if (isPossibleAudio) {
-            console.log("[DEBUG-WEBREQUEST-SEND-HEADERS] 發送請求頭:", {
-              url: url.substring(0, 100) + "...",
-              type: details.type,
-              headers: details.requestHeaders
-                ?.map((h) => `${h.name}: ${h.value?.substring(0, 50)}`)
-                .join("\n"),
-              timestamp: new Date().toISOString(),
-            });
-
-            // 檢查 Accept 標頭是否與音訊/視訊相關
-            const acceptHeader = details.requestHeaders?.find(
-              (h) => h.name.toLowerCase() === "accept"
-            );
-            if (
-              acceptHeader &&
-              (acceptHeader.value.includes("audio") ||
-                acceptHeader.value.includes("video") ||
-                acceptHeader.value.includes("*/*"))
-            ) {
-              console.log("[DEBUG-WEBREQUEST] 請求標頭顯示可能是媒體請求:", {
-                url: url.substring(0, 100) + "...",
-                accept: acceptHeader.value,
-                timestamp: new Date().toISOString(),
-              });
-            }
-          }
-        }
+        // 不輸出日誌，只處理請求
         return { requestHeaders: details.requestHeaders };
       },
       { urls: VOICE_MESSAGE_URL_PATTERNS },
@@ -219,20 +165,18 @@ function handleCompletedRequest(voiceMessages, details) {
   try {
     const url = details.url;
 
-    // 檢查是否可能是語音訊息請求
-    const isPossibleAudio = AUDIO_KEYWORDS.some((keyword) =>
-      url.includes(keyword)
-    );
-
-    if (isPossibleAudio) {
-      console.log("[DEBUG-WEBREQUEST] 偵測到可能的語音訊息請求:", {
+    // 放寬過濾條件，處理所有可能的語音訊息請求
+    if (
+      url.includes(".mp4") ||
+      url.includes("audio") ||
+      url.includes("voice") ||
+      url.includes("fbsbx.com")
+    ) {
+      console.log("[DEBUG-WEBREQUEST] 偵測到語音訊息請求:", {
         url: details.url.substring(0, 150) + "...",
         type: details.type,
         statusCode: details.statusCode,
         method: details.method,
-        tabId: details.tabId,
-        frameId: details.frameId,
-        timeStamp: details.timeStamp,
       });
     } else {
       // 如果不是可能的語音訊息，直接返回
@@ -256,13 +200,15 @@ function handleCompletedRequest(voiceMessages, details) {
         const headerName = header.name.toLowerCase();
         if (headerName === "content-disposition") {
           durationMs = extractDurationFromContentDisposition(header.value);
-          console.log(
-            "[DEBUG-WEBREQUEST] 從 content-disposition 提取持續時間:",
-            {
-              header: header.value,
-              durationMs,
-            }
-          );
+          if (durationMs) {
+            console.log(
+              "[DEBUG-WEBREQUEST] 從 content-disposition 提取持續時間:",
+              {
+                header: header.value,
+                durationMs,
+              }
+            );
+          }
         } else if (headerName === "last-modified") {
           lastModified = header.value;
         } else if (headerName === "content-type") {
@@ -340,21 +286,22 @@ function handleCompletedRequest(voiceMessages, details) {
 function handleHeadersReceived(voiceMessages, details) {
   try {
     const url = details.url;
-    // 檢查是否可能是音訊檔案
-    const isPossibleAudio = AUDIO_KEYWORDS.some((keyword) =>
-      url.includes(keyword)
-    );
+    // 放寬過濾條件，處理所有可能的語音訊息請求
+    if (
+      !url.includes(".mp4") &&
+      !url.includes("audio") &&
+      !url.includes("voice") &&
+      !url.includes("fbsbx.com")
+    ) {
+      return;
+    }
 
     // 從標頭中提取內容類型和內容長度
     let contentType = null;
     let contentLength = null;
     let contentDisposition = null;
-    let allHeaders = [];
 
     if (details.responseHeaders) {
-      // 收集所有標頭用於調試
-      allHeaders = details.responseHeaders.map((h) => `${h.name}: ${h.value}`);
-
       for (const header of details.responseHeaders) {
         const headerName = header.name.toLowerCase();
         if (headerName === "content-type") {
@@ -367,46 +314,29 @@ function handleHeadersReceived(voiceMessages, details) {
       }
     }
 
-    // 記錄所有可能的音訊檔案的標頭
-    if (
-      isPossibleAudio ||
-      (contentType &&
-        (contentType.includes("audio") || contentType.includes("video")))
-    ) {
-      console.log("[DEBUG-WEBREQUEST-HEADERS] 收到回應標頭:", {
-        url: url.substring(0, 100) + "...",
-        contentType,
-        contentLength,
-        contentDisposition,
-        allHeaders: allHeaders.join("\n"),
-        timestamp: new Date().toISOString(),
-      });
-    }
+    // 只輸出確定是語音訊息的日誌
+    if (contentDisposition && contentDisposition.includes("audioclip")) {
+      // 從 content-disposition 提取持續時間
+      let durationMs = null;
+      if (contentDisposition) {
+        durationMs = extractDurationFromContentDisposition(contentDisposition);
+      }
 
-    // 檢查是否為音訊檔案
-    const isAudioFile = isLikelyAudioFile(contentType, url);
+      // 如果無法從 content-disposition 提取，嘗試從 URL 提取
+      if (!durationMs) {
+        durationMs = extractDurationFromUrl(url);
+      }
 
-    // 檢查是否是媒體請求
-    const isMedia = details.type === "media" || details.type === "object";
-
-    // 檢查 URL 是否包含音訊相關關鍵字
-    const hasAudioKeywords = AUDIO_KEYWORDS.some((keyword) =>
-      details.url.includes(keyword)
-    );
-
-    if (isAudioFile || isMedia || hasAudioKeywords) {
-      console.log("[DEBUG-WEBREQUEST] 偵測到可能的音訊檔案:", {
+      console.log("[DEBUG-WEBREQUEST] 偵測到語音訊息檔案:", {
         url: details.url.substring(0, 100) + "...",
         contentType,
         contentLength,
-        isAudioFile,
-        isMedia,
-        hasAudioKeywords,
-        timestamp: new Date().toISOString(),
+        contentDisposition,
+        durationMs,
       });
 
       // 如果沒有從其他方法獲取到持續時間，可以嘗試從檔案大小估計
-      if (contentLength) {
+      if (!durationMs && contentLength) {
         const fileSizeBytes = parseInt(contentLength, 10);
         if (!isNaN(fileSizeBytes)) {
           // 根據檔案大小估計持續時間（毫秒）
