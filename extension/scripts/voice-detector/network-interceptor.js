@@ -22,13 +22,21 @@ export function initNetworkInterceptor(voiceMessages) {
     const response = await originalFetch.apply(this, arguments);
     
     try {
-      // 複製 response 以便我們可以讀取它
-      const responseClone = response.clone();
-      
       // 檢查請求 URL 是否包含 ".mp4" 和 "audioclip"
       const url = typeof resource === 'string' ? resource : resource.url;
       
+      console.log('[DEBUG-NETWORK] 攝獲到網路請求:', {
+        url: url ? url.substring(0, 100) : null,
+        method: options?.method || 'GET',
+        status: response.status
+      });
+      
       if (url && url.includes('.mp4') && url.includes('audioclip')) {
+        console.log('[DEBUG-NETWORK] 偵測到語音訊息請求:', url.substring(0, 100));
+        
+        // 複製 response 以便我們可以讀取它
+        const responseClone = response.clone();
+        
         // 處理語音訊息請求
         processAudioResponse(voiceMessages, url, responseClone);
       }
@@ -53,22 +61,40 @@ async function processAudioResponse(voiceMessages, url, response) {
     const contentDisposition = response.headers.get('content-disposition');
     const lastModified = response.headers.get('last-modified');
     
+    console.log('[DEBUG-NETWORK] 音訊回應標頭:', {
+      contentDisposition,
+      lastModified
+    });
+    
     // 從 content-disposition 提取持續時間
     // 格式範例：attachment; filename=audioclip-1742393117000-30999.mp4
     const durationMs = extractDurationFromContentDisposition(contentDisposition);
+    console.log('[DEBUG-NETWORK] 提取的持續時間(毫秒):', durationMs);
     
     if (durationMs) {
       // 註冊下載 URL
-      registerDownloadUrl(voiceMessages, durationMs, url, lastModified);
+      console.log('[DEBUG-NETWORK] 準備註冊下載 URL:', {
+        durationMs,
+        url: url.substring(0, 100) + '...'
+      });
+      
+      const result = registerDownloadUrl(voiceMessages, durationMs, url, lastModified);
+      console.log('[DEBUG-NETWORK] 註冊下載 URL 結果:', result);
+      
+      console.log('[DEBUG-NETWORK] voiceMessages 資料狀態:', {
+        itemsCount: voiceMessages.items.size
+      });
       
       console.log('攔截到語音訊息下載 URL', {
-        url,
+        url: url.substring(0, 100) + '...',
         durationMs,
         lastModified
       });
+    } else {
+      console.log('[DEBUG-NETWORK] 無法提取持續時間從 content-disposition:', contentDisposition);
     }
   } catch (error) {
-    console.error('處理音訊回應時發生錯誤:', error);
+    console.error('[DEBUG-NETWORK] 處理音訊回應時發生錯誤:', error);
   }
 }
 
