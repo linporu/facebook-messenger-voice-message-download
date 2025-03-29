@@ -3,7 +3,7 @@
   "name": "VoiLoad: Facebook Messenger Voice Message Downloader",
   "description": "Download Facebook and Messenger voice messages with one click",
   "version": "0.1.0",
-  "author": "Richard Lin",
+  "author": "linpoju.richard@gmail.com",
 
   "permissions": ["activeTab", "contextMenus", "downloads", "webRequest"],
   "host_permissions": [
