@@ -52,6 +52,14 @@ export function initMessageHandler(voiceMessages) {
       console.log("[DEBUG-BACKGROUND] 處理 blob 內容下載訊息");
       handleDownloadBlobContent(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
+    } else if (message.action === "registerBlobUrl") {
+      console.log("[DEBUG-BACKGROUND] 處理 Blob URL 註冊訊息");
+      handleRegisterBlobUrl(message, sender, sendResponse);
+      return true; // 保持連接開啟，以便異步回應
+    } else if (message.action === "blobUrlDetected") {
+      console.log("[DEBUG-BACKGROUND] 處理 Blob URL 偵測訊息");
+      handleBlobUrlDetected(message, sender, sendResponse);
+      return true; // 保持連接開啟，以便異步回應
     } else {
       console.log(
         "[DEBUG-BACKGROUND] 未處理的訊息類型:",
@@ -333,6 +341,104 @@ function handleRegisterElementMessage(message, sender, sendResponse) {
     );
     sendResponse({ success: false, error: error.message });
   }
+}
+
+/**
+ * 處理 Blob URL 註冊訊息
+ * 將 Blob URL 與其持續時間一起存儲到 voiceMessagesStore 中
+ *
+ * @param {Object} message - 訊息物件，包含 blobUrl, durationMs 等資訊
+ * @param {Object} sender - 發送者資訊
+ * @param {Function} sendResponse - 回應函數
+ */
+function handleRegisterBlobUrl(message, sender, sendResponse) {
+  console.log("[DEBUG-MESSAGEHANDLER] 處理 Blob URL 註冊訊息:", {
+    blobUrl: message.blobUrl ? message.blobUrl.substring(0, 30) + "..." : null,
+    durationMs: message.durationMs,
+    blobType: message.blobType,
+    blobSize: message.blobSize,
+    timestamp: message.timestamp,
+  });
+
+  // 確保我們有 voiceMessagesStore
+  if (!voiceMessagesStore) {
+    console.log("[DEBUG-MESSAGEHANDLER] voiceMessagesStore 不存在，創建單例");
+    voiceMessagesStore = createDataStore();
+  }
+
+  // 確保有必要的資訊
+  if (!message.blobUrl || !message.durationMs) {
+    console.error("[DEBUG-MESSAGEHANDLER] 缺少必要的 Blob URL 或持續時間資訊");
+    sendResponse({
+      success: false,
+      message: "缺少必要的 Blob URL 或持續時間資訊",
+    });
+    return;
+  }
+
+  try {
+    // 使用 registerDownloadUrl 函數將 Blob URL 註冊到 voiceMessagesStore
+    const id = voiceMessagesStore.registerDownloadUrl(
+      voiceMessagesStore,
+      message.durationMs,
+      message.blobUrl,
+      null // 沒有 lastModified 資訊
+    );
+
+    console.log(
+      `[DEBUG-MESSAGEHANDLER] 成功註冊 Blob URL，ID: ${id}，持續時間: ${message.durationMs}ms`
+    );
+
+    // 輸出當前 voiceMessagesStore 的狀態
+    console.log(
+      "[DEBUG-MESSAGEHANDLER] voiceMessagesStore 當前項目數量:",
+      voiceMessagesStore.items.size
+    );
+
+    sendResponse({
+      success: true,
+      message: "成功註冊 Blob URL",
+      id: id,
+    });
+  } catch (error) {
+    console.error("[DEBUG-MESSAGEHANDLER] 註冊 Blob URL 時發生錯誤:", error);
+    sendResponse({
+      success: false,
+      message: `註冊 Blob URL 時發生錯誤: ${error.message}`,
+    });
+  }
+}
+
+/**
+ * 處理 Blob URL 偵測訊息
+ * 記錄 Blob URL 資訊，但不進行註冊（因為沒有持續時間資訊）
+ *
+ * @param {Object} message - 訊息物件
+ * @param {Object} sender - 發送者資訊
+ * @param {Function} sendResponse - 回應函數
+ */
+function handleBlobUrlDetected(message, sender, sendResponse) {
+  console.log("[DEBUG-MESSAGEHANDLER] 處理 Blob URL 偵測訊息:", {
+    blobUrl: message.blobUrl ? message.blobUrl.substring(0, 30) + "..." : null,
+    blobType: message.blobType,
+    blobSize: message.blobSize,
+    timestamp: message.timestamp,
+    error: message.error,
+  });
+
+  // 只記錄資訊，不進行實際的註冊
+  // 如果有錯誤，記錄錯誤資訊
+  if (message.error) {
+    console.error(
+      "[DEBUG-MESSAGEHANDLER] Blob URL 偵測中的錯誤:",
+      message.error
+    );
+  }
+
+  sendResponse({
+    success: true,
+    message: "已記錄 Blob URL 偵測資訊",
+  });
 }
 
 /**
