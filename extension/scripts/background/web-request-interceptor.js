@@ -139,6 +139,18 @@ export function initWebRequestInterceptor(voiceMessages) {
           tabId: sender.tab?.id,
         });
         sendResponse({ success: true });
+      } else if (message.action === "blobUrlDetected") {
+        console.log("[DEBUG-WEBREQUEST] 收到 blob URL 偵測訊息:", {
+          blobUrl: message.blobUrl,
+          blobType: message.blobType,
+          blobSize: message.blobSize,
+          timestamp: message.timestamp,
+          tabId: sender.tab?.id,
+        });
+
+        // 處理 blob URL
+        setupBlobUrlMessageListener(voiceMessages, message, sender);
+        sendResponse({ success: true, message: "Blob URL 已接收" });
       }
       return true;
     });
@@ -152,6 +164,60 @@ export function initWebRequestInterceptor(voiceMessages) {
       "[DEBUG-WEBREQUEST] 初始化 webRequest 攔截器時發生錯誤:",
       error
     );
+  }
+}
+
+/**
+ * 處理 blob URL 訊息
+ *
+ * @param {Object} voiceMessages - 語音訊息資料存儲
+ * @param {Object} message - 訊息物件
+ * @param {Object} sender - 發送者資訊
+ */
+export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
+  try {
+    console.log("[DEBUG-WEBREQUEST] 設置 Blob URL 訊息監聽器");
+
+    const { blobUrl, blobType, blobSize, timestamp } = message;
+
+    // 如果是音訊相關的 blob
+    if (
+      blobType &&
+      (blobType.includes("audio") ||
+        blobType.includes("video") ||
+        blobType.includes("mp4"))
+    ) {
+      console.log("[DEBUG-WEBREQUEST] 偵測到音訊相關的 blob URL:", {
+        blobUrl,
+        blobType,
+        blobSize,
+        tabId: sender.tab?.id,
+      });
+
+      // 將 blob URL 發送回內容腳本，要求提取內容
+      chrome.tabs.sendMessage(
+        sender.tab.id,
+        {
+          action: "extractBlobContent",
+          blobUrl: blobUrl,
+          blobType: blobType,
+          requestId: Date.now().toString(),
+        },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error(
+              "[DEBUG-WEBREQUEST] 發送提取 blob 內容要求時發生錯誤:",
+              chrome.runtime.lastError
+            );
+            return;
+          }
+
+          console.log("[DEBUG-WEBREQUEST] 已發送提取 blob 內容要求");
+        }
+      );
+    }
+  } catch (error) {
+    console.error("[DEBUG-WEBREQUEST] 處理 blob URL 訊息時發生錯誤:", error);
   }
 }
 

@@ -8,6 +8,64 @@ import { initDomDetector } from "./voice-detector/dom-detector.js";
 import { initContextMenuHandler } from "./voice-detector/context-menu-handler.js";
 
 /**
+ * 設置 Blob URL 監控
+ * 攔截 URL.createObjectURL 方法來捕獲 blob URL 的創建
+ */
+function setupBlobUrlMonitor() {
+  console.log("[DEBUG-BLOB] 設置 Blob URL 監控");
+
+  // 保存原始的 URL.createObjectURL 方法
+  const originalCreateObjectURL = URL.createObjectURL;
+
+  // 攔截 URL.createObjectURL 方法
+  URL.createObjectURL = function (blob) {
+    // 調用原始方法獲取 blob URL
+    const blobUrl = originalCreateObjectURL.apply(this, arguments);
+
+    try {
+      // 檢查 blob 類型
+      if (blob && blob.type) {
+        console.log(`[DEBUG-BLOB] 攔截到 URL.createObjectURL 調用:`, {
+          blobUrl,
+          blobType: blob.type,
+          blobSize: blob.size,
+        });
+
+        // 特別關注音訊相關的 blob
+        if (
+          blob.type.includes("audio") ||
+          blob.type.includes("video") ||
+          blob.type.includes("mp4")
+        ) {
+          console.log(`[DEBUG-BLOB] 偵測到音訊/視訊 Blob URL 創建:`, {
+            blobUrl,
+            blobType: blob.type,
+            blobSize: blob.size,
+            timestamp: new Date().toISOString(),
+          });
+
+          // 將 blob URL 資訊發送到背景腳本
+          window.sendToBackground({
+            action: "blobUrlDetected",
+            blobUrl: blobUrl,
+            blobType: blob.type,
+            blobSize: blob.size,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+    } catch (error) {
+      console.error("[DEBUG-BLOB] 處理 blob URL 時發生錯誤:", error);
+    }
+
+    // 返回原始的 blob URL
+    return blobUrl;
+  };
+
+  console.log("[DEBUG-BLOB] Blob URL 監控已設置");
+}
+
+/**
  * 主要初始化函數
  */
 function initialize() {
@@ -22,6 +80,9 @@ function initialize() {
     console.log("不支援的網站，擴充功能不會啟動");
     return;
   }
+
+  // 設置 Blob URL 監控
+  setupBlobUrlMonitor();
 
   // 初始化 DOM 偵測器 - 不再傳遞 voiceMessages 參數
   initDomDetector();
