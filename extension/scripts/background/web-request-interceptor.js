@@ -139,6 +139,18 @@ export function initWebRequestInterceptor(voiceMessages) {
           tabId: sender.tab?.id,
         });
         sendResponse({ success: true });
+      } else if (message.action === "blobUrlDetected") {
+        console.log("[DEBUG-WEBREQUEST] 收到 blob URL 偵測訊息:", {
+          blobUrl: message.blobUrl,
+          blobType: message.blobType,
+          blobSize: message.blobSize,
+          timestamp: message.timestamp,
+          tabId: sender.tab?.id,
+        });
+
+        // 處理 blob URL
+        setupBlobUrlMessageListener(voiceMessages, message, sender);
+        sendResponse({ success: true, message: "Blob URL 已接收" });
       }
       return true;
     });
@@ -152,6 +164,87 @@ export function initWebRequestInterceptor(voiceMessages) {
       "[DEBUG-WEBREQUEST] 初始化 webRequest 攔截器時發生錯誤:",
       error
     );
+  }
+}
+
+/**
+ * 處理 blob URL 訊息
+ * 不再自動下載，而是將 blob URL 和 blobType 存儲到 voiceMessagesStore 中
+ *
+ * @param {Object} voiceMessages - 語音訊息資料存儲
+ * @param {Object} message - 訊息物件
+ * @param {Object} sender - 發送者資訊
+ */
+export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
+  try {
+    console.log("[DEBUG-WEBREQUEST] 設置 Blob URL 訊息監聽器");
+
+    const { blobUrl, blobType, blobSize, timestamp, durationMs } = message;
+
+    // 如果是音訊相關的 blob
+    if (
+      blobType &&
+      (blobType.includes("audio") ||
+        blobType.includes("video") ||
+        blobType.includes("mp4"))
+    ) {
+      console.log("[DEBUG-WEBREQUEST] 偵測到音訊相關的 blob URL:", {
+        blobUrl,
+        blobType,
+        blobSize,
+        tabId: sender.tab?.id,
+      });
+
+      // 如果已有持續時間資訊，直接註冊到 voiceMessages
+      if (durationMs) {
+        console.log(
+          `[DEBUG-WEBREQUEST] Blob URL 已有持續時間資訊: ${durationMs}ms，註冊到 voiceMessages`
+        );
+
+        // 使用 registerDownloadUrl 函數將 Blob URL 註冊到 voiceMessages
+        const id = voiceMessages.registerDownloadUrl(
+          voiceMessages,
+          durationMs,
+          blobUrl,
+          null // 沒有 lastModified 資訊
+        );
+
+        console.log(
+          `[DEBUG-WEBREQUEST] 成功註冊 Blob URL，ID: ${id}，持續時間: ${durationMs}ms`
+        );
+      } else {
+        // 沒有持續時間資訊，需要計算
+        console.log("[DEBUG-WEBREQUEST] Blob URL 沒有持續時間資訊，需要計算");
+
+        // 發送訊息到內容腳本，要求計算持續時間
+        chrome.tabs.sendMessage(
+          sender.tab.id,
+          {
+            action: "calculateBlobDuration",
+            blobUrl: blobUrl,
+            blobType: blobType,
+            requestId: Date.now().toString(),
+          },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              console.error(
+                "[DEBUG-WEBREQUEST] 發送計算 blob 持續時間要求時發生錯誤:",
+                chrome.runtime.lastError
+              );
+              return;
+            }
+
+            console.log("[DEBUG-WEBREQUEST] 已發送計算 blob 持續時間要求");
+          }
+        );
+      }
+
+      console.log(
+        "[DEBUG-WEBREQUEST] 注意：Blob URL 已存儲，但不會自動下載。用戶需要右鍵點擊才會下載。"
+      );
+    }
+  } catch (error) {
+    console.error("[DEBUG-WEBREQUEST] 處理 blob URL 訊息時發生錯誤:", error);
   }
 }
 
@@ -280,10 +373,7 @@ function handleCompletedRequest(voiceMessages, details) {
             }
           : null,
       });
-    } else if (
-      contentLength &&
-      (isPossibleAudio || isLikelyAudioFile(contentType, url))
-    ) {
+    } else if (contentLength && isLikelyAudioFile(contentType, url)) {
       // 如果無法提取持續時間，但確定是音訊檔案，嘗試使用檔案大小估計
       const fileSizeBytes = parseInt(contentLength, 10);
       if (!isNaN(fileSizeBytes)) {
