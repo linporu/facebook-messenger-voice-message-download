@@ -198,6 +198,27 @@ function setupBlobUrlMonitor() {
         return blobUrl; // 如果沒有 blob 或 blob.type，直接返回
       }
 
+      // 獲取 blob 的詳細資訊用於診斷
+      const blobSizeKB = (blob.size / 1024).toFixed(2);
+      const urlFeatures = blobUrl.substring(0, 50);
+      const timestamp = new Date().toISOString();
+      const stackTrace = new Error().stack;
+      const pageUrl = window.location.href;
+
+      // 判斷 blob 大小範圍
+      let sizeCategory = "未知";
+      if (blob.size < 10 * 1024) {
+        sizeCategory = "極小 (<10KB)";
+      } else if (blob.size < 100 * 1024) {
+        sizeCategory = "小 (10KB-100KB)";
+      } else if (blob.size < 1024 * 1024) {
+        sizeCategory = "中 (100KB-1MB)";
+      } else if (blob.size < 10 * 1024 * 1024) {
+        sizeCategory = "大 (1MB-10MB)";
+      } else {
+        sizeCategory = "極大 (>10MB)";
+      }
+
       // 更精確的音訊偵測：檢查 MIME 類型和大小
       const isLikelyAudio =
         // 檢查 MIME 類型
@@ -208,6 +229,25 @@ function setupBlobUrlMonitor() {
         blob.size > 10 * 1024 &&
         blob.size < 10 * 1024 * 1024;
 
+      // 輸出詳細診斷資訊
+      console.log(
+        JSON.stringify({
+          prefix: "[DEBUG-BLOB-DETAILED]",
+          blobUrl: urlFeatures,
+          blobType: blob.type,
+          blobSizeBytes: blob.size,
+          blobSizeKB: blobSizeKB,
+          sizeCategory: sizeCategory,
+          isLikelyAudio: isLikelyAudio,
+          timestamp: timestamp,
+          pageUrl: pageUrl,
+          stackTraceHint: stackTrace ? stackTrace.split("\n")[2] : "無法獲取",
+          creationContext: document.activeElement
+            ? document.activeElement.tagName
+            : "無法獲取",
+        })
+      );
+
       if (!isLikelyAudio) {
         return blobUrl; // 如果不可能是音訊，直接返回
       }
@@ -217,12 +257,6 @@ function setupBlobUrlMonitor() {
 
       // 標記為已處理
       processedBlobUrls.add(blobUrl);
-
-      // 記錄詳細日誌，但減少輸出頻率
-      console.log(`[DEBUG-BLOB] 偵測到可能的音訊 Blob:`, {
-        blobType: blob.type,
-        blobSize: blob.size,
-      });
 
       // 計算音訊持續時間
       getDurationFromBlob(blob)
@@ -235,7 +269,29 @@ function setupBlobUrlMonitor() {
             return;
           }
 
-          console.log(`[DEBUG-BLOB] 成功計算 Blob 持續時間: ${durationMs}ms`);
+          // 判斷持續時間範圍
+          let durationCategory = "未知";
+          if (durationMs < 3000) {
+            durationCategory = "極短 (<3秒)";
+          } else if (durationMs < 10000) {
+            durationCategory = "短 (3-10秒)";
+          } else if (durationMs < 60000) {
+            durationCategory = "中 (10秒-1分鐘)";
+          } else {
+            durationCategory = "長 (>1分鐘)";
+          }
+
+          console.log(
+            JSON.stringify({
+              prefix: "[DEBUG-BLOB-DURATION]",
+              blobUrl: urlFeatures,
+              durationMs: durationMs,
+              durationCategory: durationCategory,
+              blobType: blob.type,
+              blobSizeKB: blobSizeKB,
+              timestamp: timestamp,
+            })
+          );
 
           // 將 Blob URL 與持續時間一起存儲到 voiceMessagesStore，但不自動下載
           window.sendToBackground({
@@ -244,7 +300,9 @@ function setupBlobUrlMonitor() {
             blobType: blob.type,
             blobSize: blob.size,
             durationMs: durationMs,
-            timestamp: new Date().toISOString(),
+            durationCategory: durationCategory,
+            sizeCategory: sizeCategory,
+            timestamp: timestamp,
           });
 
           console.log(
@@ -256,6 +314,17 @@ function setupBlobUrlMonitor() {
           // 減少輸出錯誤日誌的頻率
           console.error(
             "[DEBUG-BLOB] 計算 Blob 持續時間失敗，可能不是音訊檔案"
+          );
+
+          console.log(
+            JSON.stringify({
+              prefix: "[DEBUG-BLOB-ERROR]",
+              blobUrl: urlFeatures,
+              blobType: blob.type,
+              blobSizeKB: blobSizeKB,
+              error: error.message,
+              timestamp: timestamp,
+            })
           );
 
           // 不再發送失敗的 blob 到背景腳本，減少資源消耗
@@ -270,7 +339,8 @@ function setupBlobUrlMonitor() {
               blobUrl: blobUrl,
               blobType: blob.type,
               blobSize: blob.size,
-              timestamp: new Date().toISOString(),
+              sizeCategory: sizeCategory,
+              timestamp: timestamp,
             });
 
             console.log(
