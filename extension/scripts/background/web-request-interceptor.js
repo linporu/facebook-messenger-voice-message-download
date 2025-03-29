@@ -346,10 +346,7 @@ function handleCompletedRequest(voiceMessages, details) {
             }
           : null,
       });
-    } else if (
-      contentLength &&
-      (isPossibleAudio || isLikelyAudioFile(contentType, url))
-    ) {
+    } else if (contentLength && isLikelyAudioFile(contentType, url)) {
       // 如果無法提取持續時間，但確定是音訊檔案，嘗試使用檔案大小估計
       const fileSizeBytes = parseInt(contentLength, 10);
       if (!isNaN(fileSizeBytes)) {
