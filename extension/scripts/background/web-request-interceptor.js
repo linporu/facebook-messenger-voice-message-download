@@ -169,6 +169,7 @@ export function initWebRequestInterceptor(voiceMessages) {
 
 /**
  * 處理 blob URL 訊息
+ * 不再自動下載，而是將 blob URL 和 blobType 存儲到 voiceMessagesStore 中
  *
  * @param {Object} voiceMessages - 語音訊息資料存儲
  * @param {Object} message - 訊息物件
@@ -178,7 +179,7 @@ export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
   try {
     console.log("[DEBUG-WEBREQUEST] 設置 Blob URL 訊息監聽器");
 
-    const { blobUrl, blobType, blobSize, timestamp } = message;
+    const { blobUrl, blobType, blobSize, timestamp, durationMs } = message;
 
     // 如果是音訊相關的 blob
     if (
@@ -194,26 +195,52 @@ export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
         tabId: sender.tab?.id,
       });
 
-      // 將 blob URL 發送回內容腳本，要求提取內容
-      chrome.tabs.sendMessage(
-        sender.tab.id,
-        {
-          action: "extractBlobContent",
-          blobUrl: blobUrl,
-          blobType: blobType,
-          requestId: Date.now().toString(),
-        },
-        (response) => {
-          if (chrome.runtime.lastError) {
-            console.error(
-              "[DEBUG-WEBREQUEST] 發送提取 blob 內容要求時發生錯誤:",
-              chrome.runtime.lastError
-            );
-            return;
-          }
+      // 如果已有持續時間資訊，直接註冊到 voiceMessages
+      if (durationMs) {
+        console.log(
+          `[DEBUG-WEBREQUEST] Blob URL 已有持續時間資訊: ${durationMs}ms，註冊到 voiceMessages`
+        );
 
-          console.log("[DEBUG-WEBREQUEST] 已發送提取 blob 內容要求");
-        }
+        // 使用 registerDownloadUrl 函數將 Blob URL 註冊到 voiceMessages
+        const id = voiceMessages.registerDownloadUrl(
+          voiceMessages,
+          durationMs,
+          blobUrl,
+          null // 沒有 lastModified 資訊
+        );
+
+        console.log(
+          `[DEBUG-WEBREQUEST] 成功註冊 Blob URL，ID: ${id}，持續時間: ${durationMs}ms`
+        );
+      } else {
+        // 沒有持續時間資訊，需要計算
+        console.log("[DEBUG-WEBREQUEST] Blob URL 沒有持續時間資訊，需要計算");
+
+        // 發送訊息到內容腳本，要求計算持續時間
+        chrome.tabs.sendMessage(
+          sender.tab.id,
+          {
+            action: "calculateBlobDuration",
+            blobUrl: blobUrl,
+            blobType: blobType,
+            requestId: Date.now().toString(),
+          },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              console.error(
+                "[DEBUG-WEBREQUEST] 發送計算 blob 持續時間要求時發生錯誤:",
+                chrome.runtime.lastError
+              );
+              return;
+            }
+
+            console.log("[DEBUG-WEBREQUEST] 已發送計算 blob 持續時間要求");
+          }
+        );
+      }
+
+      console.log(
+        "[DEBUG-WEBREQUEST] 注意：Blob URL 已存儲，但不會自動下載。用戶需要右鍵點擊才會下載。"
       );
     }
   } catch (error) {

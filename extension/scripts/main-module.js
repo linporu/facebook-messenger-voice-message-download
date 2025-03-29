@@ -195,7 +195,7 @@ function setupBlobUrlMonitor() {
                 `[DEBUG-BLOB] 成功計算 Blob 持續時間: ${durationMs}ms`
               );
 
-              // 將 Blob URL 與持續時間一起存儲到 voiceMessagesStore
+              // 將 Blob URL 與持續時間一起存儲到 voiceMessagesStore，但不自動下載
               window.sendToBackground({
                 action: "registerBlobUrl",
                 blobUrl: blobUrl,
@@ -204,6 +204,10 @@ function setupBlobUrlMonitor() {
                 durationMs: durationMs,
                 timestamp: new Date().toISOString(),
               });
+
+              console.log(
+                `[DEBUG-BLOB] Blob URL 已註冊，持續時間: ${durationMs}ms。等待用戶右鍵點擊下載。`
+              );
             })
             .catch((error) => {
               console.error("[DEBUG-BLOB] 計算 Blob 持續時間失敗:", error);
@@ -217,6 +221,10 @@ function setupBlobUrlMonitor() {
                 timestamp: new Date().toISOString(),
                 error: error.message,
               });
+
+              console.log(
+                "[DEBUG-BLOB] 無法計算持續時間，但仍然註冊了 Blob URL。等待用戶右鍵點擊下載。"
+              );
             });
         }
       }
