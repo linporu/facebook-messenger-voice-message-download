@@ -337,5 +337,17 @@ export function isLanguageSupported(langCode) {
   return !!LANGUAGE_LABELS[normalizedLangCode];
 }
 
+// 導出所有需要的函數
+export {
+  setCurrentLanguage,
+  getCurrentLanguage,
+  normalizeLanguageCode,
+  isLanguageSupported,
+  getPlayButtonLabel,
+  getAudioSliderLabel,
+  matchesAnyPlayButtonLabel,
+  matchesAnyAudioSliderLabel
+};
+
 // 記錄語言工具模組已載入
 console.log("[DEBUG-LANGUAGE] 語言工具模組已成功載入");
