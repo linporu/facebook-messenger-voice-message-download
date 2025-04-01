@@ -97,15 +97,18 @@ let allAudioSliderLabels = null;
  * @returns {string|null} - 偵測到的語言代碼，如果無法偵測則返回 null
  */
 function detectLanguage() {
+  console.log("[DEBUG-LANGUAGE] 開始偵測介面語言");
+
   // 如果已經有偵測結果，直接返回
   if (detectedLanguageCode) {
+    console.log(`[DEBUG-LANGUAGE] 使用先前偵測的語言: ${detectedLanguageCode}`);
     return detectedLanguageCode;
   }
 
   // 檢查當前環境是否有 document 物件
   if (typeof document === "undefined" || !document.documentElement) {
     console.warn(
-      "偵測語言失敗：當前環境沒有 document 物件，可能在背景腳本中執行"
+      "[DEBUG-LANGUAGE] 偵測語言失敗：當前環境沒有 document 物件，可能在背景腳本中執行"
     );
     detectedLanguageCode = "en"; // 默認使用英文
     return detectedLanguageCode;
@@ -114,15 +117,19 @@ function detectLanguage() {
   try {
     // 從 HTML 標籤獲取語言
     const htmlLang = document.documentElement.lang;
+    console.log(`[DEBUG-LANGUAGE] HTML lang 屬性值: "${htmlLang}"`);
 
     if (htmlLang) {
       // 處理常見的語言代碼格式，例如 "en_US" -> "en"
       const langParts = htmlLang.split(/[-_]/);
       const baseLang = langParts[0].toLowerCase();
+      console.log(`[DEBUG-LANGUAGE] 基本語言代碼: "${baseLang}"`);
 
       // 處理特殊情況：中文繁體和簡體
       if (baseLang === "zh") {
         const region = langParts[1] ? langParts[1].toUpperCase() : "";
+        console.log(`[DEBUG-LANGUAGE] 中文區域: "${region}"`);
+
         if (region === "TW" || region === "HK") {
           detectedLanguageCode = "zh-Hant";
         } else if (region === "CN" || region === "SG") {
@@ -137,17 +144,32 @@ function detectLanguage() {
           (lang) => lang === baseLang || lang.startsWith(baseLang + "-")
         );
 
+        console.log(
+          `[DEBUG-LANGUAGE] 找到支持的語言: "${supportedLang || "無"}"`
+        );
         detectedLanguageCode = supportedLang || "en"; // 默認使用英文
       }
 
-      console.log(`偵測到介面語言: ${detectedLanguageCode}`);
+      console.log(
+        `[DEBUG-LANGUAGE] 最終偵測到的介面語言: ${detectedLanguageCode}`
+      );
+
+      // 記錄此語言的標籤映射
+      const playLabel =
+        LANGUAGE_LABELS[detectedLanguageCode]?.playButton || "undefined";
+      const audioLabel =
+        LANGUAGE_LABELS[detectedLanguageCode]?.audioSlider || "undefined";
+      console.log(`[DEBUG-LANGUAGE] 此語言的播放按鈕標籤: "${playLabel}"`);
+      console.log(`[DEBUG-LANGUAGE] 此語言的音訊滑框標籤: "${audioLabel}"`);
+
       return detectedLanguageCode;
     }
   } catch (error) {
-    console.error("偵測語言時發生錯誤:", error);
+    console.error("[DEBUG-LANGUAGE] 偵測語言時發生錯誤:", error);
   }
 
   // 默認使用英文
+  console.log("[DEBUG-LANGUAGE] 無法偵測語言，默認使用英文");
   detectedLanguageCode = "en";
   return detectedLanguageCode;
 }
