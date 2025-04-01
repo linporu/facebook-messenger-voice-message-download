@@ -6,7 +6,10 @@
 
 import { initDomDetector } from "./voice-detector/dom-detector.js";
 import { initContextMenuHandler } from "./voice-detector/context-menu-handler.js";
-import { setCurrentLanguage, normalizeLanguageCode } from "./utils/language-utils.js";
+import {
+  setCurrentLanguage,
+  normalizeLanguageCode,
+} from "./utils/language-utils.js";
 
 // 全局標記，用於識別擴充功能自己創建的 blob URL
 // 使用 WeakMap 避免記憶體洩漏
@@ -370,22 +373,25 @@ function setupBlobUrlMonitor() {
 function setupLanguageDetection() {
   // 初始偵測頁面語言
   detectAndNotifyLanguage();
-  
+
   // 設置 MutationObserver 監聽 HTML 標籤的 lang 屬性變更
   const htmlElement = document.documentElement;
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
-      if (mutation.type === 'attributes' && mutation.attributeName === 'lang') {
-        console.log('[DEBUG-LANGUAGE] HTML lang 屬性已變更，重新偵測語言');
+      if (mutation.type === "attributes" && mutation.attributeName === "lang") {
+        console.log("[DEBUG-LANGUAGE] HTML lang 屬性已變更，重新偵測語言");
         detectAndNotifyLanguage();
         break;
       }
     }
   });
-  
+
   // 開始監聽 HTML 標籤的屬性變更
-  observer.observe(htmlElement, { attributes: true, attributeFilter: ['lang'] });
-  
+  observer.observe(htmlElement, {
+    attributes: true,
+    attributeFilter: ["lang"],
+  });
+
   return observer;
 }
 
@@ -395,32 +401,34 @@ function setupLanguageDetection() {
 function detectAndNotifyLanguage() {
   // 從 HTML 標籤獲取語言代碼
   const htmlElement = document.documentElement;
-  const langAttribute = htmlElement.getAttribute('lang');
-  
+  const langAttribute = htmlElement.getAttribute("lang");
+
   if (langAttribute) {
     console.log(`[DEBUG-LANGUAGE] 偵測到頁面語言: ${langAttribute}`);
-    
+
     // 標準化語言代碼
     const normalizedLangCode = normalizeLanguageCode(langAttribute);
-    
+
     // 設置當前語言
     const hasChanged = setCurrentLanguage(normalizedLangCode);
-    
+
     // 如果語言已變更，通知背景腳本
     if (hasChanged) {
-      console.log(`[DEBUG-LANGUAGE] 語言已變更為: ${normalizedLangCode}，通知背景腳本`);
-      
+      console.log(
+        `[DEBUG-LANGUAGE] 語言已變更為: ${normalizedLangCode}，通知背景腳本`
+      );
+
       // 使用 window.sendToBackground 發送訊息
       if (window.sendToBackground) {
         window.sendToBackground({
-          action: 'languageChanged',
+          action: "languageChanged",
           language: normalizedLangCode,
-          originalLanguage: langAttribute
+          originalLanguage: langAttribute,
         });
       }
     }
   } else {
-    console.log('[DEBUG-LANGUAGE] 無法從 HTML 標籤獲取語言代碼');
+    console.log("[DEBUG-LANGUAGE] 無法從 HTML 標籤獲取語言代碼");
   }
 }
 
@@ -440,33 +448,37 @@ function initialize() {
     return;
   }
 
-  // 設置語言偵測
+  // 先設置語言偵測
   setupLanguageDetection();
-  
-  // 設置 Blob URL 監控
-  setupBlobUrlMonitor();
 
-  // 初始化 DOM 偵測器 - 不再傳遞 voiceMessages 參數
-  initDomDetector();
+  // 等待短暫延遲，確保語言設置已完成
+  setTimeout(() => {
+    // 設置 Blob URL 監控
+    setupBlobUrlMonitor();
 
-  // 初始化右鍵選單處理器 - 不再傳遞 voiceMessages 參數
-  initContextMenuHandler();
+    // 初始化 DOM 偵測器和右鍵選單處理器
+    initDomDetector();
+    initContextMenuHandler();
+
+    console.log("[DEBUG-MAIN] DOM 偵測器和右鍵選單處理器已在語言偵測後初始化");
+
+    // 通知背景腳本內容腳本已初始化
+    window.postMessage(
+      {
+        type: "FROM_VOICE_MESSAGE_DOWNLOADER",
+        message: {
+          action: "contentScriptInitialized",
+          url: window.location.href,
+          hostname: window.location.hostname,
+        },
+      },
+      "*"
+    );
+  }, 500); // 延遲 500ms 確保語言設置已完成
 
   console.log("[DEBUG-MAIN] 使用 webRequest API 模式，不再使用 fetch 代理攝截");
 
-  // 通知背景腳本內容腳本已初始化
-  // 注意：在頁面上下文中不能直接使用 chrome API，改用 window.postMessage
-  window.postMessage(
-    {
-      type: "FROM_VOICE_MESSAGE_DOWNLOADER",
-      message: {
-        action: "contentScriptInitialized",
-        url: window.location.href,
-        hostname: window.location.hostname,
-      },
-    },
-    "*"
-  );
+  // 通知背景腳本已由上面的setTimeout處理
 
   // 不再需要定期清理過期項目，這將由背景腳本處理
 
