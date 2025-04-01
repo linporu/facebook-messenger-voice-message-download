@@ -368,31 +368,28 @@ function setupBlobUrlMonitor() {
 }
 
 /**
- * 偵測頁面語言並設置監聽器
+ * 偵測頁面語言
+ * 簡化後只在初始化時偵測一次語言，不持續監控
  */
 function setupLanguageDetection() {
-  // 初始偵測頁面語言
+  console.log("[DEBUG-LANGUAGE] 執行單次語言偵測，不再持續監控");
+
+  // 立即偵測並設置語言
   detectAndNotifyLanguage();
 
-  // 設置 MutationObserver 監聽 HTML 標籤的 lang 屬性變更
-  const htmlElement = document.documentElement;
-  const observer = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      if (mutation.type === "attributes" && mutation.attributeName === "lang") {
-        console.log("[DEBUG-LANGUAGE] HTML lang 屬性已變更，重新偵測語言");
-        detectAndNotifyLanguage();
-        break;
-      }
-    }
+  // 只在頁面跳轉時重新偵測（避免SPA應用中的問題）
+  window.addEventListener("popstate", () => {
+    console.log("[DEBUG-LANGUAGE] 頁面跳轉，重新偵測語言");
+    detectAndNotifyLanguage();
   });
 
-  // 開始監聽 HTML 標籤的屬性變更
-  observer.observe(htmlElement, {
-    attributes: true,
-    attributeFilter: ["lang"],
+  // 同樣監聽頁面的 hashchange 事件，處理基於錨點的路由變化
+  window.addEventListener("hashchange", () => {
+    console.log("[DEBUG-LANGUAGE] URL 錨點變更，重新偵測語言");
+    detectAndNotifyLanguage();
   });
 
-  return observer;
+  console.log("[DEBUG-LANGUAGE] 語言偵測已設置，只在頁面跳轉時重新偵測");
 }
 
 /**
