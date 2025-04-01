@@ -4,7 +4,10 @@
  * 這個檔案會以 ES6 模組的方式載入，可以使用 import/export 語法
  */
 
-import { initDomDetector } from "./voice-detector/dom-detector.js";
+import {
+  initDomDetector,
+  detectVoiceMessages,
+} from "./voice-detector/dom-detector.js";
 import { initContextMenuHandler } from "./voice-detector/context-menu-handler.js";
 import {
   setCurrentLanguage,
