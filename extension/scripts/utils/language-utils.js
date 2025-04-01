@@ -7,7 +7,7 @@
 let currentLanguage = null;
 
 // 默認語言代碼（用於回退）
-const DEFAULT_LANGUAGE = 'en';
+const DEFAULT_LANGUAGE = "en";
 
 /**
  * 語言代碼到 aria-label 的映射表
@@ -243,30 +243,30 @@ function matchesAnyAudioSliderLabel(ariaLabel) {
 
 /**
  * 設置當前語言
- * 
+ *
  * @param {string} langCode - 語言代碼
  * @returns {boolean} - 是否成功設置語言
  */
 export function setCurrentLanguage(langCode) {
   if (!langCode) return false;
-  
+
   // 標準化語言代碼（僅保留主要部分，例如 zh-TW -> zh-Hant）
   const normalizedLangCode = normalizeLanguageCode(langCode);
-  
+
   // 檢查語言是否已改變
   const hasChanged = currentLanguage !== normalizedLangCode;
-  
+
   // 更新當前語言
   currentLanguage = normalizedLangCode;
-  
+
   console.log(`[DEBUG-LANGUAGE] 設置當前語言: ${currentLanguage}`);
-  
+
   return hasChanged;
 }
 
 /**
  * 獲取當前語言
- * 
+ *
  * @returns {string} - 當前語言代碼
  */
 export function getCurrentLanguage() {
@@ -276,77 +276,81 @@ export function getCurrentLanguage() {
 /**
  * 標準化語言代碼
  * 將特定的語言代碼映射到我們支援的格式
- * 
+ *
  * @param {string} langCode - 原始語言代碼
  * @returns {string} - 標準化後的語言代碼
  */
 export function normalizeLanguageCode(langCode) {
   if (!langCode) return DEFAULT_LANGUAGE;
-  
+
   // 轉換為小寫以進行比較
   const lowerLangCode = langCode.toLowerCase();
-  
+
   // 處理繁體中文變體
-  if (lowerLangCode === 'zh-tw' || lowerLangCode === 'zh-hk' || lowerLangCode === 'zh-mo') {
-    return 'zh-Hant';
+  if (
+    lowerLangCode === "zh-tw" ||
+    lowerLangCode === "zh-hk" ||
+    lowerLangCode === "zh-mo"
+  ) {
+    return "zh-Hant";
   }
-  
+
   // 處理簡體中文變體
-  if (lowerLangCode === 'zh-cn' || lowerLangCode === 'zh-sg' || lowerLangCode === 'zh-my') {
-    return 'zh-Hans';
+  if (
+    lowerLangCode === "zh-cn" ||
+    lowerLangCode === "zh-sg" ||
+    lowerLangCode === "zh-my"
+  ) {
+    return "zh-Hans";
   }
-  
+
   // 處理西班牙語變體
-  if (lowerLangCode.startsWith('es-')) {
-    return 'es';
+  if (lowerLangCode.startsWith("es-")) {
+    return "es";
   }
-  
+
   // 處理法語變體
-  if (lowerLangCode.startsWith('fr-')) {
-    return 'fr';
+  if (lowerLangCode.startsWith("fr-")) {
+    return "fr";
   }
-  
+
   // 處理其他語言 - 僅保留主要部分
-  if (lowerLangCode.includes('-')) {
-    const mainPart = lowerLangCode.split('-')[0];
+  if (lowerLangCode.includes("-")) {
+    const mainPart = lowerLangCode.split("-")[0];
     // 檢查是否有對應的主要語言代碼
     if (LANGUAGE_LABELS[mainPart]) {
       return mainPart;
     }
   }
-  
+
   // 如果在 LANGUAGE_LABELS 中找到完整匹配，則使用原始代碼
   if (LANGUAGE_LABELS[lowerLangCode]) {
     return lowerLangCode;
   }
-  
+
   // 默認返回英語
   return DEFAULT_LANGUAGE;
 }
 
 /**
  * 檢查語言是否受支援
- * 
+ *
  * @param {string} langCode - 語言代碼
  * @returns {boolean} - 是否支援該語言
  */
 export function isLanguageSupported(langCode) {
   if (!langCode) return false;
-  
+
   const normalizedLangCode = normalizeLanguageCode(langCode);
   return !!LANGUAGE_LABELS[normalizedLangCode];
 }
 
-// 導出所有需要的函數
+// 導出尚未導出的函數
 export {
-  setCurrentLanguage,
-  getCurrentLanguage,
-  normalizeLanguageCode,
-  isLanguageSupported,
   getPlayButtonLabel,
   getAudioSliderLabel,
   matchesAnyPlayButtonLabel,
-  matchesAnyAudioSliderLabel
+  matchesAnyAudioSliderLabel,
 };
 
 // 記錄語言工具模組已載入
