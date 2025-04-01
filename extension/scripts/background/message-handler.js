@@ -13,6 +13,12 @@ import { createDataStore } from "./data-store.js";
 // 使用單例模式獲取語音訊息資料存儲
 let voiceMessagesStore = null;
 
+// 當前語言設置
+let currentLanguage = null;
+
+// 語言變更監聽器
+const languageChangeListeners = [];
+
 /**
  * 初始化訊息處理器
  *
@@ -47,6 +53,10 @@ export function initMessageHandler(voiceMessages) {
     } else if (message.action === "registerVoiceMessageElement") {
       console.log("[DEBUG-BACKGROUND] 處理語音訊息元素註冊訊息");
       handleRegisterElementMessage(message, sender, sendResponse);
+      return true; // 保持連接開啟，以便異步回應
+    } else if (message.action === "languageChanged") {
+      console.log("[DEBUG-BACKGROUND] 處理語言變更訊息");
+      handleLanguageChangedMessage(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
     } else if (message.action === "downloadBlobContent") {
       console.log("[DEBUG-BACKGROUND] 處理 blob 內容下載訊息");
@@ -619,6 +629,78 @@ function handleBlobUrlDetected(message, sender, sendResponse) {
     success: true,
     message: "已記錄 Blob URL 偵測資訊",
   });
+}
+
+/**
+ * 處理語言變更訊息
+ * 
+ * @param {Object} message - 訊息物件，包含 language 和 originalLanguage
+ * @param {Object} sender - 發送者資訊
+ * @param {Function} sendResponse - 回應函數
+ */
+function handleLanguageChangedMessage(message, sender, sendResponse) {
+  try {
+    console.log(`[DEBUG-LANGUAGE] 收到語言變更訊息: ${message.language} (原始: ${message.originalLanguage})`);
+    
+    // 更新當前語言
+    const previousLanguage = currentLanguage;
+    currentLanguage = message.language;
+    
+    // 通知所有語言變更監聽器
+    for (const listener of languageChangeListeners) {
+      try {
+        listener(currentLanguage, previousLanguage);
+      } catch (listenerError) {
+        console.error('[DEBUG-LANGUAGE] 語言變更監聽器發生錯誤:', listenerError);
+      }
+    }
+    
+    // 回應成功
+    sendResponse({ success: true, language: currentLanguage });
+  } catch (error) {
+    console.error('[DEBUG-LANGUAGE] 處理語言變更訊息發生錯誤:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+/**
+ * 獲取當前語言
+ * 
+ * @returns {string|null} - 當前語言代碼，如果未設置則返回 null
+ */
+export function getCurrentLanguage() {
+  return currentLanguage;
+}
+
+/**
+ * 註冊語言變更監聽器
+ * 
+ * @param {Function} listener - 監聽器函數，接受兩個參數：新語言和舊語言
+ * @returns {Function} - 取消註冊的函數
+ */
+export function addLanguageChangeListener(listener) {
+  if (typeof listener !== 'function') {
+    throw new Error('監聽器必須是函數');
+  }
+  
+  languageChangeListeners.push(listener);
+  
+  // 如果已有語言設置，立即通知監聽器
+  if (currentLanguage) {
+    try {
+      listener(currentLanguage, null);
+    } catch (error) {
+      console.error('[DEBUG-LANGUAGE] 初始化語言監聽器發生錯誤:', error);
+    }
+  }
+  
+  // 返回取消註冊的函數
+  return () => {
+    const index = languageChangeListeners.indexOf(listener);
+    if (index !== -1) {
+      languageChangeListeners.splice(index, 1);
+    }
+  };
 }
 
 /**

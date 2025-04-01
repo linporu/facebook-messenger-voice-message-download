@@ -55,21 +55,22 @@ export function initDomDetector() {
  * 偵測頁面上的語音訊息元素
  */
 export function detectVoiceMessages() {
-  // 方法 1: 尋找滑桿元素
-  const sliders = document.querySelectorAll(
-    `[role="slider"][aria-label="${VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
-  );
-
-  for (const slider of sliders) {
-    processSliderElement(slider);
+  // 使用語言感知方式偵測語音訊息元素
+  console.log("[DEBUG-DOM-DETECTOR] 開始偵測語音訊息元素");
+  
+  // 方法 1: 直接使用所有滑桿元素，然後使用 isVoiceMessageSlider 函數過濾
+  const allSliders = document.querySelectorAll('[role="slider"]');
+  
+  for (const slider of allSliders) {
+    if (isVoiceMessageSlider(slider)) {
+      processSliderElement(slider);
+    }
   }
 
-  // 方法 2: 尋找播放按鈕
-  const playButtons = document.querySelectorAll(
-    `[role="button"][aria-label="${VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
-  );
+  // 方法 2: 直接使用所有按鈕元素，然後使用 isVoiceMessagePlayButton 函數過濾
+  const allButtons = document.querySelectorAll('[role="button"]');
 
-  for (const button of playButtons) {
+  for (const button of allButtons) {
     if (isVoiceMessagePlayButton(button)) {
       const slider = getSliderFromPlayButton(button);
       if (slider) {

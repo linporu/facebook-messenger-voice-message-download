@@ -6,6 +6,7 @@
 
 import { initDomDetector } from "./voice-detector/dom-detector.js";
 import { initContextMenuHandler } from "./voice-detector/context-menu-handler.js";
+import { setCurrentLanguage, normalizeLanguageCode } from "./utils/language-utils.js";
 
 // 全局標記，用於識別擴充功能自己創建的 blob URL
 // 使用 WeakMap 避免記憶體洩漏
@@ -364,6 +365,66 @@ function setupBlobUrlMonitor() {
 }
 
 /**
+ * 偵測頁面語言並設置監聽器
+ */
+function setupLanguageDetection() {
+  // 初始偵測頁面語言
+  detectAndNotifyLanguage();
+  
+  // 設置 MutationObserver 監聽 HTML 標籤的 lang 屬性變更
+  const htmlElement = document.documentElement;
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'lang') {
+        console.log('[DEBUG-LANGUAGE] HTML lang 屬性已變更，重新偵測語言');
+        detectAndNotifyLanguage();
+        break;
+      }
+    }
+  });
+  
+  // 開始監聽 HTML 標籤的屬性變更
+  observer.observe(htmlElement, { attributes: true, attributeFilter: ['lang'] });
+  
+  return observer;
+}
+
+/**
+ * 偵測頁面語言並通知背景腳本
+ */
+function detectAndNotifyLanguage() {
+  // 從 HTML 標籤獲取語言代碼
+  const htmlElement = document.documentElement;
+  const langAttribute = htmlElement.getAttribute('lang');
+  
+  if (langAttribute) {
+    console.log(`[DEBUG-LANGUAGE] 偵測到頁面語言: ${langAttribute}`);
+    
+    // 標準化語言代碼
+    const normalizedLangCode = normalizeLanguageCode(langAttribute);
+    
+    // 設置當前語言
+    const hasChanged = setCurrentLanguage(normalizedLangCode);
+    
+    // 如果語言已變更，通知背景腳本
+    if (hasChanged) {
+      console.log(`[DEBUG-LANGUAGE] 語言已變更為: ${normalizedLangCode}，通知背景腳本`);
+      
+      // 使用 window.sendToBackground 發送訊息
+      if (window.sendToBackground) {
+        window.sendToBackground({
+          action: 'languageChanged',
+          language: normalizedLangCode,
+          originalLanguage: langAttribute
+        });
+      }
+    }
+  } else {
+    console.log('[DEBUG-LANGUAGE] 無法從 HTML 標籤獲取語言代碼');
+  }
+}
+
+/**
  * 主要初始化函數
  */
 function initialize() {
@@ -379,6 +440,9 @@ function initialize() {
     return;
   }
 
+  // 設置語言偵測
+  setupLanguageDetection();
+  
   // 設置 Blob URL 監控
   setupBlobUrlMonitor();
 
