@@ -4,8 +4,15 @@
  * 這個檔案會以 ES6 模組的方式載入，可以使用 import/export 語法
  */
 
-import { initDomDetector } from "./voice-detector/dom-detector.js";
+import {
+  initDomDetector,
+  detectVoiceMessages,
+} from "./voice-detector/dom-detector.js";
 import { initContextMenuHandler } from "./voice-detector/context-menu-handler.js";
+import {
+  setCurrentLanguage,
+  normalizeLanguageCode,
+} from "./utils/language-utils.js";
 
 // 全局標記，用於識別擴充功能自己創建的 blob URL
 // 使用 WeakMap 避免記憶體洩漏
@@ -364,6 +371,68 @@ function setupBlobUrlMonitor() {
 }
 
 /**
+ * 偵測頁面語言
+ * 簡化後只在初始化時偵測一次語言，不持續監控
+ */
+function setupLanguageDetection() {
+  console.log("[DEBUG-LANGUAGE] 執行單次語言偵測，不再持續監控");
+
+  // 立即偵測並設置語言
+  detectAndNotifyLanguage();
+
+  // 只在頁面跳轉時重新偵測（避免SPA應用中的問題）
+  window.addEventListener("popstate", () => {
+    console.log("[DEBUG-LANGUAGE] 頁面跳轉，重新偵測語言");
+    detectAndNotifyLanguage();
+  });
+
+  // 同樣監聽頁面的 hashchange 事件，處理基於錨點的路由變化
+  window.addEventListener("hashchange", () => {
+    console.log("[DEBUG-LANGUAGE] URL 錨點變更，重新偵測語言");
+    detectAndNotifyLanguage();
+  });
+
+  console.log("[DEBUG-LANGUAGE] 語言偵測已設置，只在頁面跳轉時重新偵測");
+}
+
+/**
+ * 偵測頁面語言並通知背景腳本
+ */
+function detectAndNotifyLanguage() {
+  // 從 HTML 標籤獲取語言代碼
+  const htmlElement = document.documentElement;
+  const langAttribute = htmlElement.getAttribute("lang");
+
+  if (langAttribute) {
+    console.log(`[DEBUG-LANGUAGE] 偵測到頁面語言: ${langAttribute}`);
+
+    // 標準化語言代碼
+    const normalizedLangCode = normalizeLanguageCode(langAttribute);
+
+    // 設置當前語言
+    const hasChanged = setCurrentLanguage(normalizedLangCode);
+
+    // 如果語言已變更，通知背景腳本
+    if (hasChanged) {
+      console.log(
+        `[DEBUG-LANGUAGE] 語言已變更為: ${normalizedLangCode}，通知背景腳本`
+      );
+
+      // 使用 window.sendToBackground 發送訊息
+      if (window.sendToBackground) {
+        window.sendToBackground({
+          action: "languageChanged",
+          language: normalizedLangCode,
+          originalLanguage: langAttribute,
+        });
+      }
+    }
+  } else {
+    console.log("[DEBUG-LANGUAGE] 無法從 HTML 標籤獲取語言代碼");
+  }
+}
+
+/**
  * 主要初始化函數
  */
 function initialize() {
@@ -379,19 +448,10 @@ function initialize() {
     return;
   }
 
-  // 設置 Blob URL 監控
-  setupBlobUrlMonitor();
+  // 先設置語言偵測
+  setupLanguageDetection();
 
-  // 初始化 DOM 偵測器 - 不再傳遞 voiceMessages 參數
-  initDomDetector();
-
-  // 初始化右鍵選單處理器 - 不再傳遞 voiceMessages 參數
-  initContextMenuHandler();
-
-  console.log("[DEBUG-MAIN] 使用 webRequest API 模式，不再使用 fetch 代理攝截");
-
-  // 通知背景腳本內容腳本已初始化
-  // 注意：在頁面上下文中不能直接使用 chrome API，改用 window.postMessage
+  // 通知背景腳本內容腳本已初始化，並等待確認
   window.postMessage(
     {
       type: "FROM_VOICE_MESSAGE_DOWNLOADER",
@@ -403,6 +463,27 @@ function initialize() {
     },
     "*"
   );
+
+  console.log("[DEBUG-MAIN] 已發送初始化訊息到背景腳本，等待確認");
+
+  // 增加延遲時間，確保背景腳本的 webRequest 監聽器完全設置好
+  setTimeout(() => {
+    // 設置 Blob URL 監控
+    setupBlobUrlMonitor();
+
+    // 初始化 DOM 偵測器和右鍵選單處理器
+    initDomDetector();
+    initContextMenuHandler();
+
+    console.log("[DEBUG-MAIN] DOM 偵測器和右鍵選單處理器已初始化");
+
+    // 設置重試機制，定期檢查尚未匹配的語音訊息元素
+    setupRetryMechanism();
+  }, 1500); // 延遲 1500ms 確保背景腳本的 webRequest 監聽器已完全設置
+
+  console.log("[DEBUG-MAIN] 使用 webRequest API 模式，不再使用 fetch 代理攝截");
+
+  // 通知背景腳本已由上面的setTimeout處理
 
   // 不再需要定期清理過期項目，這將由背景腳本處理
 
@@ -449,6 +530,63 @@ function initialize() {
   };
 
   console.log("Facebook Messenger 語音訊息下載器模組已啟動");
+}
+
+/**
+ * 設置重試機制，定期檢查尚未匹配的語音訊息元素
+ */
+function setupRetryMechanism() {
+  console.log("[DEBUG-MAIN] 設置重試機制");
+
+  // 初始掃描頁面上已存在的語音訊息
+  setTimeout(() => {
+    console.log("[DEBUG-MAIN] 執行初始掃描，尋找已存在的語音訊息");
+    // 再次執行 DOM 偵測，確保捕獲所有已存在的語音訊息元素
+    detectVoiceMessages();
+  }, 2000); // 延遲 2 秒執行初始掃描
+
+  // 設置定期重試機制，每 5 秒檢查一次尚未匹配的語音訊息元素
+  const retryInterval = setInterval(() => {
+    // 獲取所有已標記的語音訊息元素
+    const markedElements = document.querySelectorAll("[data-voice-message-id]");
+    let pendingCount = 0;
+
+    // 檢查每個元素是否有對應的下載 URL
+    for (const element of markedElements) {
+      const id = element.getAttribute("data-voice-message-id");
+      if (id) {
+        // 嘗試獲取下載 URL
+        const downloadInfo = window.sendToBackground({
+          action: "checkDownloadUrl",
+          elementId: id,
+        });
+
+        if (!downloadInfo || !downloadInfo.downloadUrl) {
+          pendingCount++;
+        }
+      }
+    }
+
+    if (pendingCount > 0) {
+      console.log(
+        `[DEBUG-MAIN] 重試機制: 仍有 ${pendingCount} 個語音訊息尚未匹配到下載 URL`
+      );
+      // 再次執行 DOM 偵測
+      detectVoiceMessages();
+    } else if (markedElements.length > 0) {
+      console.log(
+        `[DEBUG-MAIN] 重試機制: 所有 ${markedElements.length} 個語音訊息都已匹配到下載 URL`
+      );
+      // 如果所有元素都已匹配，可以停止重試
+      clearInterval(retryInterval);
+    }
+  }, 5000); // 每 5 秒重試一次
+
+  // 30 分鐘後停止重試，避免無限期運行
+  setTimeout(() => {
+    clearInterval(retryInterval);
+    console.log("[DEBUG-MAIN] 重試機制已停止");
+  }, 30 * 60 * 1000);
 }
 
 // 當 DOM 完全載入後初始化

@@ -23,6 +23,23 @@ const VOICE_MESSAGE_URL_PATTERNS = [
   "*://*.messenger.com/*",
   "*://*.cdninstagram.com/*", // Instagram CDN
   "*://*.fbsbx.com/*", // Facebook 安全瀏覽擴展域名
+  "*://*.fna.fbcdn.net/*", // Facebook 內容傳送網路的另一個域名
+  "*://*.fna.whatsapp.net/*", // WhatsApp 相關的域名，有時會用於 Facebook 訊息
+];
+
+// 高優先級的 URL 模式，用於更精確地匹配語音訊息
+const HIGH_PRIORITY_URL_PATTERNS = [
+  "*://*.facebook.com/*/audioclip-*",
+  "*://*.fbcdn.net/*/audioclip-*",
+  "*://*.messenger.com/*/audioclip-*",
+  "*://*.fbcdn.net/*mp4*",
+  "*://*.fbcdn.net/*/v/t*",
+  "*://*.fbcdn.net/*/o1/v/t*",
+  "*://*.fbcdn.net/*/o2/v/*",
+  "*://*.fbsbx.com/*/audioclip-*",
+  "*://*.fbsbx.com/*mp4*",
+  "*://*.fna.fbcdn.net/*mp4*",
+  "*://*.fna.fbcdn.net/*/v/t*",
 ];
 
 // 可能的音訊檔案關鍵字
@@ -43,6 +60,12 @@ const AUDIO_KEYWORDS = [
   "clip",
   "message",
   "media",
+  "fbid", // Facebook ID 參數，常出現在語音訊息 URL 中
+  "bytestart", // 字節範圍參數，常用於分段下載
+  "byteend", // 字節範圍參數
+  "source", // 來源參數
+  "oh", // Facebook 的一種參數
+  "oe", // Facebook 的一種參數
 ];
 
 /**
@@ -69,27 +92,57 @@ export function initWebRequestInterceptor(voiceMessages) {
 
     console.log("[DEBUG-WEBREQUEST] chrome.webRequest API 可用");
 
-    // 監聽完成的請求
-    console.log("[DEBUG-WEBREQUEST] 設置 onCompleted 監聽器");
+    // 監聽完成的請求，先設置高優先級的監聽器
+    console.log("[DEBUG-WEBREQUEST] 設置高優先級 onCompleted 監聽器");
     chrome.webRequest.onCompleted.addListener(
       (details) => {
-        handleCompletedRequest(voiceMessages, details);
+        console.log(
+          "[DEBUG-WEBREQUEST] 收到高優先級請求:",
+          details.url.substring(0, 100)
+        );
+        handleCompletedRequest(voiceMessages, details, true); // 指定為高優先級
+      },
+      { urls: HIGH_PRIORITY_URL_PATTERNS },
+      ["responseHeaders"]
+    );
+    console.log("[DEBUG-WEBREQUEST] 高優先級 onCompleted 監聽器設置完成");
+
+    // 設置一般優先級的監聽器
+    console.log("[DEBUG-WEBREQUEST] 設置一般 onCompleted 監聽器");
+    chrome.webRequest.onCompleted.addListener(
+      (details) => {
+        handleCompletedRequest(voiceMessages, details, false); // 指定為一般優先級
       },
       { urls: VOICE_MESSAGE_URL_PATTERNS },
       ["responseHeaders"]
     );
-    console.log("[DEBUG-WEBREQUEST] onCompleted 監聽器設置完成");
+    console.log("[DEBUG-WEBREQUEST] 一般 onCompleted 監聽器設置完成");
 
-    // 監聽請求頭，用於獲取更多資訊
-    console.log("[DEBUG-WEBREQUEST] 設置 onHeadersReceived 監聽器");
+    // 監聽請求頭，先設置高優先級的監聽器
+    console.log("[DEBUG-WEBREQUEST] 設置高優先級 onHeadersReceived 監聽器");
     chrome.webRequest.onHeadersReceived.addListener(
       (details) => {
-        handleHeadersReceived(voiceMessages, details);
+        console.log(
+          "[DEBUG-WEBREQUEST] 收到高優先級標頭:",
+          details.url.substring(0, 100)
+        );
+        handleHeadersReceived(voiceMessages, details, true); // 指定為高優先級
+      },
+      { urls: HIGH_PRIORITY_URL_PATTERNS },
+      ["responseHeaders"]
+    );
+    console.log("[DEBUG-WEBREQUEST] 高優先級 onHeadersReceived 監聽器設置完成");
+
+    // 設置一般優先級的監聽器
+    console.log("[DEBUG-WEBREQUEST] 設置一般 onHeadersReceived 監聽器");
+    chrome.webRequest.onHeadersReceived.addListener(
+      (details) => {
+        handleHeadersReceived(voiceMessages, details, false); // 指定為一般優先級
       },
       { urls: VOICE_MESSAGE_URL_PATTERNS },
       ["responseHeaders"]
     );
-    console.log("[DEBUG-WEBREQUEST] onHeadersReceived 監聽器設置完成");
+    console.log("[DEBUG-WEBREQUEST] 一般 onHeadersReceived 監聽器設置完成");
 
     // 監聽所有請求，用於調試和攔截
     console.log("[DEBUG-WEBREQUEST] 設置 onBeforeRequest 監聽器");
@@ -253,17 +306,35 @@ export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
  *
  * @param {Object} voiceMessages - 語音訊息資料存儲
  * @param {Object} details - 請求詳情
+ * @param {boolean} [isHighPriority=false] - 是否為高優先級請求
  */
-function handleCompletedRequest(voiceMessages, details) {
+function handleCompletedRequest(
+  voiceMessages,
+  details,
+  isHighPriority = false
+) {
   try {
     const url = details.url;
 
-    // 放寬過濾條件，處理所有可能的語音訊息請求
-    if (
+    // 如果是高優先級請求，直接處理，不需要額外的過濾
+    if (isHighPriority) {
+      console.log("[DEBUG-WEBREQUEST] 處理高優先級語音訊息請求:", {
+        url: details.url.substring(0, 150) + "...",
+        type: details.type,
+        statusCode: details.statusCode,
+        method: details.method,
+        isHighPriority: true,
+      });
+    }
+    // 否則，放寬過濾條件，處理所有可能的語音訊息請求
+    else if (
       url.includes(".mp4") ||
       url.includes("audio") ||
       url.includes("voice") ||
-      url.includes("fbsbx.com")
+      url.includes("fbsbx.com") ||
+      url.includes("/v/t") ||
+      url.includes("/o1/v/") ||
+      url.includes("/o2/v/")
     ) {
       console.log("[DEBUG-WEBREQUEST] 偵測到語音訊息請求:", {
         url: details.url.substring(0, 150) + "...",
@@ -298,6 +369,15 @@ function handleCompletedRequest(voiceMessages, details) {
     let lastModified = null;
     let contentType = null;
     let contentLength = null;
+
+    // 高優先級請求的額外處理
+    if (isHighPriority) {
+      console.log("[DEBUG-WEBREQUEST] 高優先級請求詳細資訊:", {
+        url: details.url.substring(0, 100),
+        tabId: details.tabId,
+        timeStamp: details.timeStamp,
+      });
+    }
 
     // 從回應標頭中提取資訊
     if (details.responseHeaders) {
@@ -337,13 +417,25 @@ function handleCompletedRequest(voiceMessages, details) {
 
     // 如果找到持續時間，註冊下載 URL
     if (durationMs) {
-      console.log("[DEBUG-WEBREQUEST] 找到語音訊息下載 URL:", {
-        url: url.substring(0, 100) + "...",
-        durationMs,
-        lastModified,
-        contentType,
-        contentLength,
-      });
+      // 高優先級請求的額外日誌
+      if (isHighPriority) {
+        console.log("[DEBUG-WEBREQUEST] 找到高優先級語音訊息下載 URL:", {
+          url: url.substring(0, 100) + "...",
+          durationMs,
+          lastModified,
+          contentType,
+          contentLength,
+          isHighPriority: true
+        });
+      } else {
+        console.log("[DEBUG-WEBREQUEST] 找到語音訊息下載 URL:", {
+          url: url.substring(0, 100) + "...",
+          durationMs,
+          lastModified,
+          contentType,
+          contentLength,
+        });
+      }
 
       // 輸出 voiceMessages 的狀態
       console.log("[DEBUG-WEBREQUEST] 註冊前 voiceMessages 狀態:", {
@@ -411,16 +503,30 @@ function handleCompletedRequest(voiceMessages, details) {
  *
  * @param {Object} voiceMessages - 語音訊息資料存儲
  * @param {Object} details - 請求詳情
+ * @param {boolean} [isHighPriority=false] - 是否為高優先級請求
  */
-function handleHeadersReceived(voiceMessages, details) {
+function handleHeadersReceived(voiceMessages, details, isHighPriority = false) {
   try {
     const url = details.url;
-    // 放寬過濾條件，處理所有可能的語音訊息請求
-    if (
+    
+    // 如果是高優先級請求，直接處理，不需要額外的過濾
+    if (isHighPriority) {
+      console.log("[DEBUG-WEBREQUEST] 處理高優先級標頭請求:", {
+        url: details.url.substring(0, 150) + "...",
+        type: details.type,
+        method: details.method,
+        isHighPriority: true
+      });
+    }
+    // 否則，放寬過濾條件，處理所有可能的語音訊息請求
+    else if (
       !url.includes(".mp4") &&
       !url.includes("audio") &&
       !url.includes("voice") &&
-      !url.includes("fbsbx.com")
+      !url.includes("fbsbx.com") &&
+      !url.includes("/v/t") &&
+      !url.includes("/o1/v/") &&
+      !url.includes("/o2/v/")
     ) {
       return;
     }
@@ -428,6 +534,15 @@ function handleHeadersReceived(voiceMessages, details) {
     // 從標頭中提取內容類型和內容長度
     let contentType = null;
     let contentLength = null;
+    
+    // 高優先級請求的額外處理
+    if (isHighPriority) {
+      console.log("[DEBUG-WEBREQUEST] 高優先級標頭請求詳細資訊:", {
+        url: details.url.substring(0, 100),
+        tabId: details.tabId,
+        timeStamp: details.timeStamp
+      });
+    }
     let contentDisposition = null;
 
     if (details.responseHeaders) {

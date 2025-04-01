@@ -3,6 +3,14 @@
  * 提供 DOM 操作相關的輔助函數
  */
 
+import { 
+  getCurrentLanguage, 
+  getPlayButtonLabel, 
+  getAudioSliderLabel,
+  matchesAnyPlayButtonLabel,
+  matchesAnyAudioSliderLabel
+} from './language-utils.js';
+
 /**
  * 語音訊息播放按鈕的 SVG 路徑
  * 用於識別語音訊息元素
@@ -10,14 +18,18 @@
 export const VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH = 'M10 25.5v-15a1.5 1.5 0 012.17-1.34l15 7.5a1.5 1.5 0 010 2.68l-15 7.5A1.5 1.5 0 0110 25.5z';
 
 /**
- * 語音訊息播放按鈕的 aria-label
+ * 獲取當前語言的語音訊息播放按鈕的 aria-label
  */
-export const VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL = '播放';
+export function VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL() {
+  return getPlayButtonLabel();
+}
 
 /**
- * 語音訊息滑桿的 aria-label
+ * 獲取當前語言的語音訊息滑桿的 aria-label
  */
-export const VOICE_MESSAGE_SLIDER_ARIA_LABEL = '音訊滑桿';
+export function VOICE_MESSAGE_SLIDER_ARIA_LABEL() {
+  return getAudioSliderLabel();
+}
 
 /**
  * 檢查元素是否為語音訊息播放按鈕
@@ -28,9 +40,10 @@ export const VOICE_MESSAGE_SLIDER_ARIA_LABEL = '音訊滑桿';
 export function isVoiceMessagePlayButton(element) {
   if (!element) return false;
   
-  // 檢查 aria-label
+  // 檢查 aria-label - 使用語言感知函數
+  const ariaLabel = element.getAttribute('aria-label');
   if (element.getAttribute('role') === 'button' && 
-      element.getAttribute('aria-label') === VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL) {
+      matchesAnyPlayButtonLabel(ariaLabel)) {
     
     // 檢查是否包含特定 SVG 路徑
     const svgPath = element.querySelector('path');
@@ -56,9 +69,11 @@ export function isVoiceMessagePlayButton(element) {
  * @returns {boolean} - 如果元素是語音訊息滑桿則返回 true
  */
 export function isVoiceMessageSlider(element) {
-  return element && 
-         element.getAttribute('role') === 'slider' && 
-         element.getAttribute('aria-label') === VOICE_MESSAGE_SLIDER_ARIA_LABEL;
+  if (!element) return false;
+  
+  const ariaLabel = element.getAttribute('aria-label');
+  return element.getAttribute('role') === 'slider' && 
+         matchesAnyAudioSliderLabel(ariaLabel);
 }
 
 /**
