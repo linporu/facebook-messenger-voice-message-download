@@ -9,6 +9,10 @@ import {
 } from "./download-manager.js";
 
 import { createDataStore } from "./data-store.js";
+import Logger from "../utils/logger.js";
+
+// 創建模組特定的日誌記錄器
+const logger = Logger.createModuleLogger("MESSAGE-HANDLER");
 
 // 使用單例模式獲取語音訊息資料存儲
 let voiceMessagesStore = null;
@@ -19,52 +23,50 @@ let voiceMessagesStore = null;
  * @param {Object} [voiceMessages] - 語音訊息資料存儲（可選，如果未提供則使用單例）
  */
 export function initMessageHandler(voiceMessages) {
-  console.log("[DEBUG-MESSAGEHANDLER] 初始化訊息處理器");
+  logger.debug("初始化訊息處理器");
 
   // 如果提供了 voiceMessages 參數，使用它；否則使用單例
   if (voiceMessages) {
-    console.log("[DEBUG-MESSAGEHANDLER] 使用提供的 voiceMessages 實例");
+    logger.debug("使用提供的 voiceMessages 實例");
     voiceMessagesStore = voiceMessages;
   } else {
-    console.log("[DEBUG-MESSAGEHANDLER] 使用單例 voiceMessages 實例");
+    logger.debug("使用單例 voiceMessages 實例");
     voiceMessagesStore = createDataStore();
   }
 
-  console.log(
-    "[DEBUG-MESSAGEHANDLER] voiceMessagesStore 初始化完成，Map 大小:",
-    voiceMessagesStore.items.size
-  );
+  logger.debug("voiceMessagesStore 初始化完成", {
+    mapSize: voiceMessagesStore.items.size,
+  });
 
   // 監聽來自內容腳本的訊息
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log("[DEBUG-BACKGROUND] 收到訊息:", message);
-    console.log("[DEBUG-BACKGROUND] 發送者資訊:", sender);
+    logger.debug("收到訊息", { message });
+    logger.debug("發送者資訊", { sender });
 
     if (message.action === "rightClickOnVoiceMessage") {
-      console.log("[DEBUG-BACKGROUND] 處理右鍵點擊訊息");
+      logger.debug("處理右鍵點擊訊息");
       handleRightClickMessage(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
     } else if (message.action === "registerVoiceMessageElement") {
-      console.log("[DEBUG-BACKGROUND] 處理語音訊息元素註冊訊息");
+      logger.debug("處理語音訊息元素註冊訊息");
       handleRegisterElementMessage(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
     } else if (message.action === "downloadBlobContent") {
-      console.log("[DEBUG-BACKGROUND] 處理 blob 內容下載訊息");
+      logger.debug("處理 blob 內容下載訊息");
       handleDownloadBlobContent(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
     } else if (message.action === "registerBlobUrl") {
-      console.log("[DEBUG-BACKGROUND] 處理 Blob URL 註冊訊息");
+      logger.debug("處理 Blob URL 註冊訊息");
       handleRegisterBlobUrl(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
     } else if (message.action === "blobUrlDetected") {
-      console.log("[DEBUG-BACKGROUND] 處理 Blob URL 偵測訊息");
+      logger.debug("處理 Blob URL 偵測訊息");
       handleBlobUrlDetected(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
     } else {
-      console.log(
-        "[DEBUG-BACKGROUND] 未處理的訊息類型:",
-        message.action || "無動作"
-      );
+      logger.warn("未處理的訊息類型", {
+        action: message.action || "無動作",
+      });
     }
 
     return false;
@@ -80,7 +82,7 @@ export function initMessageHandler(voiceMessages) {
  */
 function handleRightClickMessage(message, sender, sendResponse) {
   const { elementId, downloadUrl, lastModified, durationMs } = message;
-  console.log("[DEBUG-MESSAGEHANDLER] 處理右鍵點擊訊息詳細資訊:", {
+  logger.debug("處理右鍵點擊訊息詳細資訊", {
     elementId,
     downloadUrl: downloadUrl ? downloadUrl.substring(0, 50) + "..." : null,
     lastModified,
@@ -89,90 +91,79 @@ function handleRightClickMessage(message, sender, sendResponse) {
 
   // 確保我們有 voiceMessagesStore
   if (!voiceMessagesStore) {
-    console.log("[DEBUG-MESSAGEHANDLER] voiceMessagesStore 不存在，創建單例");
+    logger.debug("voiceMessagesStore 不存在，創建單例");
     voiceMessagesStore = createDataStore();
   }
 
-  console.log(
-    "[DEBUG-MESSAGEHANDLER] voiceMessagesStore Map 大小:",
-    voiceMessagesStore.items.size
-  );
+  logger.debug("voiceMessagesStore Map 大小", {
+    mapSize: voiceMessagesStore.items.size,
+  });
 
   // 輸出所有項目的持續時間和下載 URL 狀態，用於調試
-  console.log("[DEBUG-MESSAGEHANDLER] 所有項目的持續時間和下載 URL 狀態:");
+  logger.debug("所有項目的持續時間和下載 URL 狀態");
   for (const [id, item] of voiceMessagesStore.items.entries()) {
-    console.log(
-      `- ID: ${id}, 持續時間: ${
-        item.durationMs
-      }ms, 有URL: ${!!item.downloadUrl}, 待處理: ${!!item.isPending}`
-    );
+    logger.debug(`項目狀態`, {
+      id,
+      durationMs: item.durationMs,
+      hasUrl: !!item.downloadUrl,
+      isPending: !!item.isPending,
+    });
   }
 
   // 如果沒有提供下載 URL，但有持續時間，嘗試從 voiceMessagesStore 中查找
   if (!downloadUrl && durationMs) {
-    console.log(
-      "[DEBUG-MESSAGEHANDLER] 嘗試從資料存儲中查找下載 URL，持續時間:",
-      durationMs
-    );
+    logger.debug("嘗試從資料存儲中查找下載 URL", {
+      durationMs,
+    });
 
     // 記錄匹配開始時間和目標持續時間
     const matchStartTime = Date.now();
     const targetDuration = durationMs;
 
-    console.log(
-      JSON.stringify({
-        prefix: "[DEBUG-MATCH-ATTEMPT]",
-        phase: "start",
-        targetDuration: targetDuration,
-        timestamp: new Date().toISOString(),
-        itemsCount: voiceMessagesStore.items.size,
-      })
-    );
+    logger.debug("開始匹配過程", {
+      phase: "start",
+      targetDuration,
+      timestamp: new Date().toISOString(),
+      itemsCount: voiceMessagesStore.items.size,
+    });
 
     // 方法 1: 使用 findItemByDuration 函數
     let matchingItem = null;
     if (typeof voiceMessagesStore.findItemByDuration === "function") {
-      console.log("[DEBUG-MESSAGEHANDLER] 使用 findItemByDuration 函數查找");
+      logger.debug("使用 findItemByDuration 函數查找");
       matchingItem = voiceMessagesStore.findItemByDuration(
         voiceMessagesStore,
         durationMs
       );
-      console.log(
-        "[DEBUG-MESSAGEHANDLER] findItemByDuration 結果:",
-        matchingItem ? "找到項目" : "未找到項目"
-      );
+      logger.debug("findItemByDuration 結果", {
+        found: !!matchingItem,
+      });
 
       if (matchingItem) {
-        console.log(
-          JSON.stringify({
-            prefix: "[DEBUG-MATCH-ATTEMPT]",
-            phase: "findItemByDuration",
-            result: "success",
-            itemId: matchingItem.id,
-            itemDuration: matchingItem.durationMs,
-            targetDuration: targetDuration,
-            difference: Math.abs(matchingItem.durationMs - targetDuration),
-            hasUrl: !!matchingItem.downloadUrl,
-            isPending: !!matchingItem.isPending,
-            timestamp: new Date().toISOString(),
-          })
-        );
+        logger.debug("匹配成功", {
+          phase: "findItemByDuration",
+          result: "success",
+          itemId: matchingItem.id,
+          itemDuration: matchingItem.durationMs,
+          targetDuration: targetDuration,
+          difference: Math.abs(matchingItem.durationMs - targetDuration),
+          hasUrl: !!matchingItem.downloadUrl,
+          isPending: !!matchingItem.isPending,
+          timestamp: new Date().toISOString(),
+        });
       } else {
-        console.log(
-          JSON.stringify({
-            prefix: "[DEBUG-MATCH-ATTEMPT]",
-            phase: "findItemByDuration",
-            result: "failure",
-            targetDuration: targetDuration,
-            timestamp: new Date().toISOString(),
-          })
-        );
+        logger.debug("匹配失敗", {
+          phase: "findItemByDuration",
+          result: "failure",
+          targetDuration: targetDuration,
+          timestamp: new Date().toISOString(),
+        });
       }
     }
 
     // 方法 2: 直接遍歷 items 集合
     if (!matchingItem) {
-      console.log("[DEBUG-MESSAGEHANDLER] 直接遍歷 items 集合查找");
+      logger.debug("直接遍歷 items 集合查找");
       const tolerance = 5; // 容差值（毫秒）
       let attemptCount = 0;
 
@@ -181,49 +172,41 @@ function handleRightClickMessage(message, sender, sendResponse) {
         const difference = Math.abs(item.durationMs - durationMs);
 
         // 記錄每次匹配嘗試
-        console.log(
-          JSON.stringify({
-            prefix: "[DEBUG-MATCH-ATTEMPT]",
-            phase: "iteration",
-            attemptNumber: attemptCount,
-            itemId: id,
-            itemDuration: item.durationMs,
-            targetDuration: targetDuration,
-            difference: difference,
-            withinTolerance: difference <= tolerance,
-            hasUrl: !!item.downloadUrl,
-            isPending: !!item.isPending,
-            timestamp: new Date().toISOString(),
-          })
-        );
+        logger.debug("匹配嘗試詳細", {
+          phase: "iteration",
+          attemptNumber: attemptCount,
+          itemId: id,
+          itemDuration: item.durationMs,
+          targetDuration: targetDuration,
+          difference: difference,
+          withinTolerance: difference <= tolerance,
+          hasUrl: !!item.downloadUrl,
+          isPending: !!item.isPending,
+          timestamp: new Date().toISOString(),
+        });
 
         if (item.durationMs && difference <= tolerance) {
-          console.log(
-            "[DEBUG-MESSAGEHANDLER] 找到匹配項目，持續時間:",
-            item.durationMs,
-            ", 有下載 URL:",
-            !!item.downloadUrl
-          );
+          logger.debug("找到匹配項目", {
+            durationMs: item.durationMs,
+            hasDownloadUrl: !!item.downloadUrl,
+          });
           matchingItem = item;
           break;
         }
       }
 
       // 記錄遍歷結果
-      console.log(
-        JSON.stringify({
-          prefix: "[DEBUG-MATCH-ATTEMPT]",
-          phase: "iterationComplete",
-          result: matchingItem ? "success" : "failure",
-          attemptCount: attemptCount,
-          elapsedMs: Date.now() - matchStartTime,
-          timestamp: new Date().toISOString(),
-        })
-      );
+      logger.debug("遍歷完成", {
+        phase: "iterationComplete",
+        result: matchingItem ? "success" : "failure",
+        attemptCount: attemptCount,
+        elapsedMs: Date.now() - matchStartTime,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     if (matchingItem && matchingItem.downloadUrl) {
-      console.log("[DEBUG-MESSAGEHANDLER] 在資料存儲中找到匹配的下載 URL:", {
+      logger.debug("在資料存儲中找到匹配的下載 URL", {
         id: matchingItem.id,
         durationMs: matchingItem.durationMs,
         downloadUrl: matchingItem.downloadUrl
@@ -233,12 +216,11 @@ function handleRightClickMessage(message, sender, sendResponse) {
       message.downloadUrl = matchingItem.downloadUrl;
       message.lastModified = matchingItem.lastModified || lastModified;
     } else {
-      console.log("[DEBUG-MESSAGEHANDLER] 在資料存儲中未找到匹配的下載 URL");
+      logger.warn("在資料存儲中未找到匹配的下載 URL");
       // 輸出資料存儲的狀態以協助調試
-      console.log(
-        "[DEBUG-MESSAGEHANDLER] 資料存儲中的項目數量:",
-        voiceMessagesStore.items.size
-      );
+      logger.debug("資料存儲中的項目數量", {
+        itemsCount: voiceMessagesStore.items.size,
+      });
 
       // 輸出所有項目的持續時間以進行比較
       const allDurations = [];
@@ -247,10 +229,9 @@ function handleRightClickMessage(message, sender, sendResponse) {
           allDurations.push(item.durationMs);
         }
       }
-      console.log(
-        "[DEBUG-MESSAGEHANDLER] 資料存儲中的所有持續時間:",
-        allDurations
-      );
+      logger.debug("資料存儲中的所有持續時間", {
+        durations: allDurations,
+      });
     }
   }
 
@@ -259,7 +240,7 @@ function handleRightClickMessage(message, sender, sendResponse) {
   const finalLastModified = message.lastModified;
 
   if (!finalDownloadUrl) {
-    console.log("[DEBUG-MESSAGEHANDLER] 下載 URL 無效，但仍然記錄右鍵點擊資訊");
+    logger.warn("下載 URL 無效，但仍然記錄右鍵點擊資訊");
     // 即使沒有下載 URL，也記錄右鍵點擊的資訊，以便後續捕獲到 URL 時可以使用
     setLastRightClickedInfo({
       elementId,
@@ -277,7 +258,7 @@ function handleRightClickMessage(message, sender, sendResponse) {
   }
 
   // 設置最後一次右鍵點擊的資訊
-  console.log("[DEBUG-MESSAGEHANDLER] 設置最後一次右鍵點擊的資訊:", {
+  logger.debug("設置最後一次右鍵點擊的資訊", {
     elementId,
     downloadUrl: finalDownloadUrl
       ? finalDownloadUrl.substring(0, 30) + "..."
@@ -300,10 +281,10 @@ function handleRightClickMessage(message, sender, sendResponse) {
     success: true,
     message: "已準備好下載語音訊息",
   };
-  console.log("[DEBUG-MESSAGEHANDLER] 回應內容腳本:", response);
+  logger.debug("回應內容腳本", { response });
   sendResponse(response);
 
-  console.log("[DEBUG-MESSAGEHANDLER] 右鍵點擊訊息處理完成");
+  logger.debug("右鍵點擊訊息處理完成");
 }
 
 /**
@@ -315,16 +296,14 @@ function handleRightClickMessage(message, sender, sendResponse) {
  */
 function handleRegisterElementMessage(message, sender, sendResponse) {
   const { elementId, durationMs } = message;
-  console.log("[DEBUG-BACKGROUND] 處理語音訊息元素註冊訊息:", {
+  logger.debug("處理語音訊息元素註冊訊息", {
     elementId,
     durationMs,
     tabId: sender.tab?.id,
   });
 
   if (!elementId || !durationMs || !voiceMessagesStore) {
-    console.error(
-      "[DEBUG-BACKGROUND] 缺少必要資訊或 voiceMessagesStore 不存在"
-    );
+    logger.error("缺少必要資訊或 voiceMessagesStore 不存在");
     sendResponse({ success: false, error: "缺少必要資訊" });
     return;
   }
@@ -354,7 +333,7 @@ function handleRegisterElementMessage(message, sender, sendResponse) {
         Math.abs(item.durationMs - durationMs) <= tolerance
       ) {
         // 持續時間匹配
-        console.log("[DEBUG-BACKGROUND] 找到匹配的待處理項目:", item);
+        logger.debug("找到匹配的待處理項目", { item });
         matchingItem = item;
         break;
       }
@@ -393,7 +372,7 @@ function handleRegisterElementMessage(message, sender, sendResponse) {
         lastModified: matchingItem.lastModified,
       });
     } else {
-      console.log("[DEBUG-BACKGROUND] 未找到匹配的待處理項目");
+      logger.debug("未找到匹配的待處理項目");
       sendResponse({
         success: true,
         message: "元素已註冊，但無匹配的下載 URL",
@@ -430,7 +409,7 @@ function handleRegisterBlobUrl(message, sender, sendResponse) {
   const blobSizeKB = (blobSize / 1024).toFixed(2);
   const urlFeatures = blobUrl ? blobUrl.substring(0, 30) + "..." : null;
 
-  console.log("[DEBUG-MESSAGEHANDLER] 處理 Blob URL 註冊訊息:", {
+  logger.debug("處理 Blob URL 註冊訊息", {
     blobUrl: urlFeatures,
     durationMs,
     blobType,
@@ -519,34 +498,31 @@ function handleRegisterBlobUrl(message, sender, sendResponse) {
   }
 
   // 輸出詳細診斷資訊
-  console.log(
-    JSON.stringify({
-      prefix: "[DEBUG-BLOB-REGISTER]",
-      blobUrl: urlFeatures,
-      durationMs,
-      durationCategory: durCategory,
-      blobType,
-      blobSizeBytes: blobSize,
-      blobSizeKB,
-      sizeCategory: sizeCtg,
-      isLikelyVoiceMessage,
-      confidenceScore,
-      confidenceFactors: confidenceReason,
-      pageUrl: sender.tab ? sender.tab.url : "未知",
-      tabId: sender.tab ? sender.tab.id : "未知",
-      timestamp: new Date().toISOString(),
-    })
-  );
+  logger.debug("詳細的 Blob URL 註冊資訊", {
+    blobUrl: urlFeatures,
+    durationMs,
+    durationCategory: durCategory,
+    blobType,
+    blobSizeBytes: blobSize,
+    blobSizeKB,
+    sizeCategory: sizeCtg,
+    isLikelyVoiceMessage,
+    confidenceScore,
+    confidenceFactors: confidenceReason,
+    pageUrl: sender.tab ? sender.tab.url : "未知",
+    tabId: sender.tab ? sender.tab.id : "未知",
+    timestamp: new Date().toISOString(),
+  });
 
   // 確保我們有 voiceMessagesStore
   if (!voiceMessagesStore) {
-    console.log("[DEBUG-MESSAGEHANDLER] voiceMessagesStore 不存在，創建單例");
+    logger.debug("voiceMessagesStore 不存在，創建單例");
     voiceMessagesStore = createDataStore();
   }
 
   // 確保有必要的資訊
   if (!blobUrl || !durationMs) {
-    console.error("[DEBUG-MESSAGEHANDLER] 缺少必要的 Blob URL 或持續時間資訊");
+    logger.error("缺少必要的 Blob URL 或持續時間資訊");
     sendResponse({
       success: false,
       message: "缺少必要的 Blob URL 或持續時間資訊",
@@ -570,10 +546,9 @@ function handleRegisterBlobUrl(message, sender, sendResponse) {
     );
 
     // 輸出當前 voiceMessagesStore 的狀態
-    console.log(
-      "[DEBUG-MESSAGEHANDLER] voiceMessagesStore 當前項目數量:",
-      voiceMessagesStore.items.size
-    );
+    logger.debug("voiceMessagesStore 當前項目數量", {
+      itemsCount: voiceMessagesStore.items.size,
+    });
 
     sendResponse({
       success: true,
@@ -581,7 +556,10 @@ function handleRegisterBlobUrl(message, sender, sendResponse) {
       id: id,
     });
   } catch (error) {
-    console.error("[DEBUG-MESSAGEHANDLER] 註冊 Blob URL 時發生錯誤:", error);
+    logger.error("註冊 Blob URL 時發生錯誤", {
+      error: error.message,
+      stack: error.stack,
+    });
     sendResponse({
       success: false,
       message: `註冊 Blob URL 時發生錯誤: ${error.message}`,
@@ -598,7 +576,7 @@ function handleRegisterBlobUrl(message, sender, sendResponse) {
  * @param {Function} sendResponse - 回應函數
  */
 function handleBlobUrlDetected(message, sender, sendResponse) {
-  console.log("[DEBUG-MESSAGEHANDLER] 處理 Blob URL 偵測訊息:", {
+  logger.debug("處理 Blob URL 偵測訊息", {
     blobUrl: message.blobUrl ? message.blobUrl.substring(0, 30) + "..." : null,
     blobType: message.blobType,
     blobSize: message.blobSize,
@@ -609,10 +587,9 @@ function handleBlobUrlDetected(message, sender, sendResponse) {
   // 只記錄資訊，不進行實際的註冊
   // 如果有錯誤，記錄錯誤資訊
   if (message.error) {
-    console.error(
-      "[DEBUG-MESSAGEHANDLER] Blob URL 偵測中的錯誤:",
-      message.error
-    );
+    logger.error("Blob URL 偵測中的錯誤", {
+      error: message.error,
+    });
   }
 
   sendResponse({
@@ -630,7 +607,7 @@ function handleBlobUrlDetected(message, sender, sendResponse) {
  */
 function handleDownloadBlobContent(message, sender, sendResponse) {
   try {
-    console.log("[DEBUG-MESSAGEHANDLER] 處理 blob 內容下載訊息:", {
+    logger.debug("處理 blob 內容下載訊息", {
       blobType: message.blobType,
       base64Length: message.base64data ? message.base64data.length : 0,
       requestId: message.requestId,
@@ -694,10 +671,9 @@ function handleDownloadBlobContent(message, sender, sendResponse) {
       },
       (downloadId) => {
         if (chrome.runtime.lastError) {
-          console.error(
-            "[DEBUG-MESSAGEHANDLER] 下載檔案時發生錯誤:",
-            chrome.runtime.lastError
-          );
+          logger.error("下載檔案時發生錯誤", {
+            error: chrome.runtime.lastError,
+          });
           sendResponse({
             success: false,
             error: chrome.runtime.lastError.message,
@@ -705,7 +681,7 @@ function handleDownloadBlobContent(message, sender, sendResponse) {
           return;
         }
 
-        console.log("[DEBUG-MESSAGEHANDLER] 已開始下載檔案:", {
+        logger.info("已開始下載檔案", {
           downloadId,
           filename,
           blobType: message.blobType,
@@ -720,10 +696,10 @@ function handleDownloadBlobContent(message, sender, sendResponse) {
       }
     );
   } catch (error) {
-    console.error(
-      "[DEBUG-MESSAGEHANDLER] 處理 blob 內容下載時發生錯誤:",
-      error
-    );
+    logger.error("處理 blob 內容下載時發生錯誤", {
+      error: error.message,
+      stack: error.stack,
+    });
     sendResponse({ success: false, error: error.message });
   }
 }
