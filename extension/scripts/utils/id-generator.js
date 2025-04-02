@@ -4,6 +4,7 @@
  */
 
 import { Logger } from "./logger.js";
+import { ID_CONSTANTS } from "./constants.js";
 
 /**
  * 生成語音訊息的唯一 ID
@@ -14,7 +15,7 @@ import { Logger } from "./logger.js";
 export function generateVoiceMessageId() {
   const timestamp = Date.now();
   const randomString = Math.random().toString(36).substring(2, 10);
-  const id = `voice-msg-${timestamp}-${randomString}`;
+  const id = `${ID_CONSTANTS.VOICE_MESSAGE_ID_PREFIX}${timestamp}-${randomString}`;
 
   Logger.debug("生成語音訊息 ID", { id, timestamp });
   return id;
@@ -27,7 +28,7 @@ export function generateVoiceMessageId() {
  * @returns {boolean} - 如果 ID 是語音訊息 ID 則返回 true
  */
 export function isVoiceMessageId(id) {
-  return typeof id === "string" && id.startsWith("voice-msg-");
+  return typeof id === "string" && id.startsWith(ID_CONSTANTS.VOICE_MESSAGE_ID_PREFIX);
 }
 
 /**
