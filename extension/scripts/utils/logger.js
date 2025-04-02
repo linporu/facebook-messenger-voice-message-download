@@ -18,7 +18,7 @@ let config = {
   level: LogLevel.DEBUG,
 
   // 是否顯示時間戳
-  showTimestamp: true,
+  showTimestamp: false,
 
   // 是否顯示日誌級別
   showLevel: true,
@@ -142,71 +142,6 @@ function log(level, levelValue, module, message, data) {
         break;
     }
   }
-
-  // 保存到本地存儲
-  if (config.localStorage) {
-    saveToLocalStorage({
-      timestamp: new Date().toISOString(),
-      level,
-      levelValue,
-      module,
-      message,
-      data: data ? JSON.stringify(data) : undefined,
-    });
-  }
-}
-
-/**
- * 保存日誌到本地存儲
- *
- * @param {Object} logEntry - 日誌條目
- */
-function saveToLocalStorage(logEntry) {
-  try {
-    // 從本地存儲獲取現有日誌
-    const logsKey = "voiceMessageDownloader_logs";
-    let logs = JSON.parse(localStorage.getItem(logsKey) || "[]");
-
-    // 添加新日誌
-    logs.push(logEntry);
-
-    // 控制日誌數量
-    if (logs.length > config.localStorageMaxLogs) {
-      logs = logs.slice(logs.length - config.localStorageMaxLogs);
-    }
-
-    // 保存回本地存儲
-    localStorage.setItem(logsKey, JSON.stringify(logs));
-  } catch (error) {
-    console.error("無法保存日誌到本地存儲:", error);
-  }
-}
-
-/**
- * 獲取本地存儲中的所有日誌
- *
- * @returns {Array} - 日誌數組
- */
-function getLogsFromLocalStorage() {
-  try {
-    const logsKey = "voiceMessageDownloader_logs";
-    return JSON.parse(localStorage.getItem(logsKey) || "[]");
-  } catch (error) {
-    console.error("無法從本地存儲獲取日誌:", error);
-    return [];
-  }
-}
-
-/**
- * 清空本地存儲中的日誌
- */
-function clearLocalStorageLogs() {
-  try {
-    const logsKey = "voiceMessageDownloader_logs";
-    localStorage.removeItem(logsKey);
-  } catch (error) {
-    console.error("無法清空本地存儲中的日誌:", error);
-  }
 }
 
 /**
@@ -295,32 +230,13 @@ function setModuleLevel(module, level) {
   config.moduleConfig[module] = level;
 }
 
-/**
- * 啟用本地存儲
- *
- * @param {boolean} enable - 是否啟用
- * @param {number} [maxLogs] - 本地存儲的最大日誌數量
- */
-function enableLocalStorage(enable, maxLogs) {
-  config.localStorage = !!enable;
-  if (maxLogs !== undefined) {
-    config.localStorageMaxLogs = maxLogs;
-  }
-}
-
 // 導出日誌系統
 export const Logger = {
   LogLevel,
-
   createModuleLogger,
-
   configure,
   setLevel,
   setModuleLevel,
-  enableLocalStorage,
-
-  getLogsFromLocalStorage,
-  clearLocalStorageLogs,
 
   // 全局日誌方法
   debug: (message, data) => log("DEBUG", LogLevel.DEBUG, null, message, data),
@@ -328,28 +244,6 @@ export const Logger = {
   warn: (message, data) => log("WARN", LogLevel.WARN, null, message, data),
   error: (message, data) => log("ERROR", LogLevel.ERROR, null, message, data),
 };
-
-// 提供一個使用舊式風格的日誌方法，便於從現有代碼過渡
-export function legacyLog(level, module, message, data) {
-  const logger = createModuleLogger(module);
-
-  switch (level.toLowerCase()) {
-    case "debug":
-      logger.debug(message, data);
-      break;
-    case "info":
-      logger.info(message, data);
-      break;
-    case "warn":
-      logger.warn(message, data);
-      break;
-    case "error":
-      logger.error(message, data);
-      break;
-    default:
-      logger.debug(message, data);
-  }
-}
 
 // 為了方便使用，提供預設導出
 export default Logger;
