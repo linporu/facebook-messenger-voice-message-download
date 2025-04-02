@@ -3,20 +3,25 @@
  * 主要內容腳本，負責初始化和協調其他模組
  */
 
+import { Logger } from "./utils/logger.js";
+
+// 創建模組特定的日誌記錄器
+const logger = Logger.createModuleLogger("content-script");
+
 // 檢查是否在支援的網站上
 const isSupportedSite =
   window.location.hostname.includes("facebook.com") ||
   window.location.hostname.includes("messenger.com");
 
 if (!isSupportedSite) {
-  console.log("不支援的網站，擴充功能不會啟動");
+  logger.info("不支援的網站，擴充功能不會啟動");
 } else {
   // 創建主模組腳本標籤
   const script = document.createElement("script");
   script.type = "module";
   script.src = chrome.runtime.getURL("scripts/main-module.js");
   script.onload = function () {
-    console.log("Facebook Messenger 語音訊息下載器已載入主模組");
+    logger.info("Facebook Messenger 語音訊息下載器已載入主模組");
     this.remove(); // 載入後移除腳本標籤
   };
 
@@ -33,12 +38,11 @@ if (!isSupportedSite) {
       event.data.type &&
       event.data.type === "FROM_VOICE_MESSAGE_DOWNLOADER"
     ) {
-      console.log(
-        "[DEBUG-CONTENT] 收到主模組訊息，轉發到背景腳本:",
-        event.data.message
-      );
+      logger.debug("收到主模組訊息，轉發到背景腳本", {
+        message: event.data.message,
+      });
       chrome.runtime.sendMessage(event.data.message, function (response) {
-        console.log("[DEBUG-CONTENT] 背景腳本回應:", response);
+        logger.debug("背景腳本回應", { response });
       });
     }
   });
@@ -49,11 +53,11 @@ if (!isSupportedSite) {
     sender,
     sendResponse
   ) {
-    console.log("[DEBUG-CONTENT] 收到背景腳本訊息:", message);
+    logger.debug("收到背景腳本訊息", { message });
 
     // 特別處理 extractBlobContent 訊息
     if (message.action === "extractBlobContent") {
-      console.log("[DEBUG-CONTENT] 收到提取 blob 內容要求:", {
+      logger.debug("收到提取 blob 內容要求", {
         blobUrl: message.blobUrl,
         blobType: message.blobType,
         requestId: message.requestId,
@@ -62,11 +66,11 @@ if (!isSupportedSite) {
       // 提取 blob 內容
       extractBlobContent(message.blobUrl, message.blobType, message.requestId)
         .then((result) => {
-          console.log("[DEBUG-CONTENT] 提取 blob 內容成功，發送回背景腳本");
+          logger.debug("提取 blob 內容成功，發送回背景腳本");
           sendResponse(result);
         })
         .catch((error) => {
-          console.error("[DEBUG-CONTENT] 提取 blob 內容失敗:", error);
+          logger.error("提取 blob 內容失敗", { error });
           sendResponse({ success: false, error: error.message });
         });
 
@@ -75,7 +79,7 @@ if (!isSupportedSite) {
 
     // 處理 calculateBlobDuration 訊息
     if (message.action === "calculateBlobDuration") {
-      console.log("[DEBUG-CONTENT] 收到計算 blob 持續時間要求:", {
+      logger.debug("收到計算 blob 持續時間要求", {
         blobUrl: message.blobUrl,
         blobType: message.blobType,
         requestId: message.requestId,
@@ -88,11 +92,11 @@ if (!isSupportedSite) {
         message.requestId
       )
         .then((result) => {
-          console.log("[DEBUG-CONTENT] 計算 blob 持續時間成功，發送回背景腳本");
+          logger.debug("計算 blob 持續時間成功，發送回背景腳本");
           sendResponse(result);
         })
         .catch((error) => {
-          console.error("[DEBUG-CONTENT] 計算 blob 持續時間失敗:", error);
+          logger.error("計算 blob 持續時間失敗", { error });
           sendResponse({ success: false, error: error.message });
         });
 
@@ -120,7 +124,7 @@ if (!isSupportedSite) {
    */
   async function extractBlobContent(blobUrl, blobType, requestId) {
     try {
-      console.log(`[DEBUG-CONTENT] 開始提取 blob 內容: ${blobUrl}`);
+      logger.debug("開始提取 blob 內容", { blobUrl });
 
       // 使用 fetch 獲取 blob 內容
       const response = await fetch(blobUrl);
@@ -132,11 +136,10 @@ if (!isSupportedSite) {
 
       // 獲取 blob 內容
       const blob = await response.blob();
-      console.log(
-        `[DEBUG-CONTENT] 成功獲取 blob，類型: ${blob.type || blobType}, 大小: ${
-          blob.size
-        } 位元組`
-      );
+      logger.debug("成功獲取 blob", {
+        blobType: blob.type || blobType,
+        blobSize: blob.size,
+      });
 
       // 將 blob 轉換為 base64
       return new Promise((resolve, reject) => {
@@ -151,9 +154,9 @@ if (!isSupportedSite) {
               throw new Error("無法取得有效的 base64 數據");
             }
 
-            console.log(
-              `[DEBUG-CONTENT] 成功將 blob 轉換為 base64，長度: ${base64data.length}`
-            );
+            logger.debug("成功將 blob 轉換為 base64", {
+              dataLength: base64data.length,
+            });
 
             // 發送到背景腳本，確保包含所有必要的數據
             chrome.runtime.sendMessage(
@@ -165,7 +168,7 @@ if (!isSupportedSite) {
                 timestamp: new Date().toISOString(),
               },
               (response) => {
-                console.log("[DEBUG-CONTENT] 背景腳本回應下載要求:", response);
+                logger.debug("背景腳本回應下載要求", { response });
               }
             );
 
@@ -174,10 +177,7 @@ if (!isSupportedSite) {
               message: "已發送 blob 內容到背景腳本進行下載",
             });
           } catch (innerError) {
-            console.error(
-              `[DEBUG-CONTENT] 處理 base64 數據時發生錯誤:`,
-              innerError
-            );
+            logger.error("處理 base64 數據時發生錯誤", { error: innerError });
             reject(innerError);
           }
         };
@@ -187,7 +187,7 @@ if (!isSupportedSite) {
         reader.readAsDataURL(blob);
       });
     } catch (error) {
-      console.error(`[DEBUG-CONTENT] 提取 blob 內容時發生錯誤:`, error);
+      logger.error("提取 blob 內容時發生錯誤", { error });
       throw error;
     }
   }
@@ -202,7 +202,7 @@ if (!isSupportedSite) {
    */
   async function calculateBlobDuration(blobUrl, blobType, requestId) {
     try {
-      console.log(`[DEBUG-CONTENT] 開始計算 blob 持續時間: ${blobUrl}`);
+      logger.debug("開始計算 blob 持續時間", { blobUrl });
 
       // 使用 fetch 獲取 blob 內容
       const response = await fetch(blobUrl);
@@ -214,11 +214,10 @@ if (!isSupportedSite) {
 
       // 獲取 blob 內容
       const blob = await response.blob();
-      console.log(
-        `[DEBUG-CONTENT] 成功獲取 blob，類型: ${blob.type || blobType}, 大小: ${
-          blob.size
-        } 位元組`
-      );
+      logger.debug("成功獲取 blob", {
+        blobType: blob.type || blobType,
+        blobSize: blob.size,
+      });
 
       // 計算持續時間
       return new Promise((resolve, reject) => {
@@ -232,9 +231,7 @@ if (!isSupportedSite) {
             try {
               // 獲取持續時間（秒）並轉換為毫秒
               const durationMs = Math.round(audioElement.duration * 1000);
-              console.log(
-                `[DEBUG-CONTENT] 使用 Audio 元素獲取到持續時間: ${durationMs}ms`
-              );
+              logger.debug("使用 Audio 元素獲取到持續時間", { durationMs });
 
               // 釋放 Blob URL
               URL.revokeObjectURL(tempBlobUrl);
@@ -251,10 +248,7 @@ if (!isSupportedSite) {
                   requestId: requestId,
                 },
                 (response) => {
-                  console.log(
-                    "[DEBUG-CONTENT] 背景腳本回應註冊 Blob URL 要求:",
-                    response
-                  );
+                  logger.debug("背景腳本回應註冊 Blob URL 要求", { response });
                 }
               );
 
@@ -264,10 +258,7 @@ if (!isSupportedSite) {
                 durationMs: durationMs,
               });
             } catch (innerError) {
-              console.error(
-                `[DEBUG-CONTENT] 處理音訊元數據時發生錯誤:`,
-                innerError
-              );
+              logger.error("處理音訊元數據時發生錯誤", { error: innerError });
               // 嘗試方法 2
               tryWebAudioAPI(
                 blob,
@@ -282,7 +273,7 @@ if (!isSupportedSite) {
 
           // 設置錯誤處理
           audioElement.addEventListener("error", (e) => {
-            console.error("[DEBUG-CONTENT] 載入音訊時發生錯誤:", e);
+            logger.error("載入音訊時發生錯誤", { error: e });
             URL.revokeObjectURL(tempBlobUrl);
 
             // 嘗試方法 2
@@ -296,9 +287,7 @@ if (!isSupportedSite) {
           // 設置超時處理
           setTimeout(() => {
             if (!audioElement.duration) {
-              console.log(
-                "[DEBUG-CONTENT] Audio 元素方法超時，嘗試 Web Audio API"
-              );
+              logger.debug("Audio 元素方法超時，嘗試 Web Audio API");
               URL.revokeObjectURL(tempBlobUrl);
 
               // 嘗試方法 2
@@ -313,17 +302,14 @@ if (!isSupportedSite) {
             }
           }, 3000); // 3秒超時
         } catch (error) {
-          console.error(
-            "[DEBUG-CONTENT] 使用 Audio 元素計算持續時間失敗:",
-            error
-          );
+          logger.error("使用 Audio 元素計算持續時間失敗", { error });
 
           // 嘗試方法 2
           tryWebAudioAPI(blob, blobUrl, blobType, requestId, resolve, reject);
         }
       });
     } catch (error) {
-      console.error(`[DEBUG-CONTENT] 計算 blob 持續時間時發生錯誤:`, error);
+      logger.error("計算 blob 持續時間時發生錯誤", { error });
       throw error;
     }
   }
@@ -340,7 +326,7 @@ if (!isSupportedSite) {
    */
   function tryWebAudioAPI(blob, blobUrl, blobType, requestId, resolve, reject) {
     try {
-      console.log("[DEBUG-CONTENT] 嘗試使用 Web Audio API 計算持續時間");
+      logger.debug("嘗試使用 Web Audio API 計算持續時間");
 
       // 創建 AudioContext
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -357,9 +343,7 @@ if (!isSupportedSite) {
             (audioBuffer) => {
               // 獲取持續時間（秒）並轉換為毫秒
               const durationMs = Math.round(audioBuffer.duration * 1000);
-              console.log(
-                `[DEBUG-CONTENT] 使用 Web Audio API 獲取到持續時間: ${durationMs}ms`
-              );
+              logger.debug("使用 Web Audio API 獲取到持續時間", { durationMs });
 
               // 發送計算結果到背景腳本
               chrome.runtime.sendMessage(
@@ -373,10 +357,7 @@ if (!isSupportedSite) {
                   requestId: requestId,
                 },
                 (response) => {
-                  console.log(
-                    "[DEBUG-CONTENT] 背景腳本回應註冊 Blob URL 要求:",
-                    response
-                  );
+                  logger.debug("背景腳本回應註冊 Blob URL 要求", { response });
                 }
               );
 
@@ -392,10 +373,7 @@ if (!isSupportedSite) {
               }
             },
             (decodeError) => {
-              console.error(
-                "[DEBUG-CONTENT] 解碼音訊數據時發生錯誤:",
-                decodeError
-              );
+              logger.error("解碼音訊數據時發生錯誤", { error: decodeError });
 
               // 即使無法計算持續時間，仍然註冊 Blob URL
               chrome.runtime.sendMessage(
@@ -408,10 +386,7 @@ if (!isSupportedSite) {
                   error: decodeError.message,
                 },
                 (response) => {
-                  console.log(
-                    "[DEBUG-CONTENT] 背景腳本回應 Blob URL 偵測要求:",
-                    response
-                  );
+                  logger.debug("背景腳本回應 Blob URL 偵測要求", { response });
                 }
               );
 
@@ -424,7 +399,7 @@ if (!isSupportedSite) {
             }
           );
         } catch (decodeError) {
-          console.error("[DEBUG-CONTENT] 處理音訊數據時發生錯誤:", decodeError);
+          logger.error("處理音訊數據時發生錯誤", { error: decodeError });
 
           // 即使無法計算持續時間，仍然註冊 Blob URL
           chrome.runtime.sendMessage(
@@ -454,20 +429,17 @@ if (!isSupportedSite) {
       };
 
       fileReader.onerror = function (readError) {
-        console.error("[DEBUG-CONTENT] 讀取 Blob 時發生錯誤:", readError);
+        logger.error("讀取 Blob 時發生錯誤", { error: readError });
         reject(readError);
       };
 
       // 開始讀取 Blob
       fileReader.readAsArrayBuffer(blob);
     } catch (error) {
-      console.error(
-        "[DEBUG-CONTENT] 使用 Web Audio API 計算持續時間失敗:",
-        error
-      );
+      logger.error("使用 Web Audio API 計算持續時間失敗", { error });
       reject(error);
     }
   }
 
-  console.log("Facebook Messenger 語音訊息下載器已初始化");
+  logger.info("Facebook Messenger 語音訊息下載器已初始化");
 }
