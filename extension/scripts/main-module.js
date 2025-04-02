@@ -7,6 +7,7 @@
 import { initDomDetector } from "./voice-detector/dom-detector.js";
 import { initContextMenuHandler } from "./voice-detector/context-menu-handler.js";
 import { Logger } from "./utils/logger.js";
+import { MESSAGE_TYPES, TIME_CONSTANTS } from "./utils/constants.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger('main-module');
