@@ -29,12 +29,6 @@ let config = {
   // 是否顯示在開發人員控制台
   consoleOutput: true,
 
-  // 是否儲存到本地存儲
-  localStorage: false,
-
-  // 本地存儲日誌的最大數量
-  localStorageMaxLogs: 100,
-
   // 模組級別的日誌控制
   moduleConfig: {
     // 為特定模組設置不同的日誌級別
