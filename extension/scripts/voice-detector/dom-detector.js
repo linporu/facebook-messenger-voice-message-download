@@ -15,12 +15,17 @@ import { markAsVoiceMessageElement } from "../utils/dom-utils.js";
 import { generateVoiceMessageId } from "../utils/id-generator.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
+import {
+  MESSAGE_ACTIONS,
+  MODULE_NAMES,
+  TIME_CONSTANTS,
+} from "../utils/constants.js";
 
 /**
  * 初始化 DOM 偵測器
  */
 export function initDomDetector() {
-  Logger.info("初始化 DOM 偵測器", { module: "dom-detector" });
+  Logger.info("初始化 DOM 偵測器", { module: MODULE_NAMES.DOM_DETECTOR });
 
   // 立即執行一次偵測
   detectVoiceMessages();
@@ -107,14 +112,14 @@ function processSliderElement(sliderElement) {
 
     // 發送訊息到背景腳本
     window.sendToBackground({
-      action: "registerVoiceMessageElement",
+      action: MESSAGE_ACTIONS.REGISTER_ELEMENT,
       elementId: elementId,
       durationMs: durationMs,
     });
 
     // 輸出偵測到的語音訊息
     Logger.debug("找到語音訊息", {
-      module: "dom-detector",
+      module: MODULE_NAMES.DOM_DETECTOR,
       data: {
         element: sliderElement,
         durationSec,
