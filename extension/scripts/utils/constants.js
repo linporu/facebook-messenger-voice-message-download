@@ -110,19 +110,20 @@ export const UI_CONSTANTS = {
 // ===========================================
 export const DOM_CONSTANTS = {
   // 語音訊息播放按鈕的 SVG 路徑，用於識別語音訊息元素
-  VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH: "M10 25.5v-15a1.5 1.5 0 012.17-1.34l15 7.5a1.5 1.5 0 010 2.68l-15 7.5A1.5 1.5 0 0110 25.5z",
-  
+  VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH:
+    "M10 25.5v-15a1.5 1.5 0 012.17-1.34l15 7.5a1.5 1.5 0 010 2.68l-15 7.5A1.5 1.5 0 0110 25.5z",
+
   // 語音訊息播放按鈕的 aria-label
   VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL: "播放",
-  
+
   // 語音訊息滑桿的 aria-label
   VOICE_MESSAGE_SLIDER_ARIA_LABEL: "音訊滑桿",
-  
+
   // 語音訊息元素的 data 屬性
   VOICE_MESSAGE_ELEMENT_DATA_ATTR: "data-voice-message-element",
-  
+
   // 語音訊息 ID 的 data 屬性
-  VOICE_MESSAGE_ID_DATA_ATTR: "data-voice-message-id"
+  VOICE_MESSAGE_ID_DATA_ATTR: "data-voice-message-id",
 };
 
 // ===========================================
@@ -130,7 +131,7 @@ export const DOM_CONSTANTS = {
 // ===========================================
 export const ID_CONSTANTS = {
   // 語音訊息 ID 前綴
-  VOICE_MESSAGE_ID_PREFIX: "voice-msg-"
+  VOICE_MESSAGE_ID_PREFIX: "voice-msg-",
 };
 
 // ===========================================
@@ -141,7 +142,7 @@ export const LOG_LEVELS = {
   INFO: 1,
   WARN: 2,
   ERROR: 3,
-  NONE: 4
+  NONE: 4,
 };
 
 // ===========================================
@@ -157,6 +158,7 @@ export const MODULE_NAMES = {
   WEB_REQUEST: "web-request-interceptor",
   DOM_DETECTOR: "dom-detector",
   CONTEXT_MENU: "context-menu-handler",
+  AUDIO_ANALYZER: "audio-analyzer",
 };
 
 // ===========================================
@@ -164,5 +166,5 @@ export const MODULE_NAMES = {
 // ===========================================
 export const FILENAME_CONSTANTS = {
   // 語音訊息檔名前綴
-  VOICE_MESSAGE_FILENAME_PREFIX: "voice-message-"
+  VOICE_MESSAGE_FILENAME_PREFIX: "voice-message-",
 };
