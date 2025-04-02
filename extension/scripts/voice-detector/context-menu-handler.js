@@ -9,12 +9,13 @@ import {
   getSliderFromPlayButton,
 } from "../utils/dom-utils.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
+import { Logger } from "../utils/logger.js";
 
 /**
  * 初始化右鍵選單處理器
  */
 export function initContextMenuHandler() {
-  console.log("初始化右鍵選單處理器");
+  Logger.info("初始化右鍵選單處理器", { module: "context-menu" });
 
   // 監聽 contextmenu 事件
   document.addEventListener("contextmenu", (event) => {
@@ -30,49 +31,61 @@ export function initContextMenuHandler() {
 function handleContextMenu(event) {
   // 記錄實際點擊的元素
   const clickedElement = event.target;
-  console.log("[DEBUG] 右鍵點擊元素:", clickedElement);
+  Logger.debug("右鍵點擊元素", {
+    module: "context-menu",
+    data: clickedElement,
+  });
 
   // 尋找語音訊息元素
   const result = findVoiceMessageElement(clickedElement);
-  console.log("[DEBUG] 尋找語音訊息元素結果:", result);
+  Logger.debug("尋找語音訊息元素結果", {
+    module: "context-menu",
+    data: result,
+  });
 
   if (!result) {
     // 如果找不到語音訊息元素，不做任何處理
-    console.log("[DEBUG] 未找到語音訊息元素");
+    Logger.debug("未找到語音訊息元素", { module: "context-menu" });
     return;
   }
 
   const { element, type } = result;
-  console.log("[DEBUG] 找到語音訊息元素類型:", type);
+  Logger.debug("找到語音訊息元素類型", { module: "context-menu", data: type });
 
   // 根據元素類型獲取滑桿元素
   const sliderElement =
     type === "slider" ? element : getSliderFromPlayButton(element);
-  console.log("[DEBUG] 滑桿元素:", sliderElement);
+  Logger.debug("滑桿元素", { module: "context-menu", data: sliderElement });
 
   if (!sliderElement) {
-    console.log("[DEBUG] 未找到滑桿元素");
+    Logger.debug("未找到滑桿元素", { module: "context-menu" });
     return;
   }
 
   // 檢查元素是否有 data-voice-message-id 屬性
   const id = sliderElement.getAttribute("data-voice-message-id");
-  console.log("[DEBUG] 語音訊息 ID:", id);
+  Logger.debug("語音訊息 ID", { module: "context-menu", data: id });
 
   // 從滑桿元素獲取持續時間
   const durationSec = getDurationFromSlider(sliderElement);
-  console.log("[DEBUG] 從滑桿獲取的持續時間(秒):", durationSec);
+  Logger.debug("從滑桿獲取的持續時間(秒)", {
+    module: "context-menu",
+    data: durationSec,
+  });
 
   if (durationSec !== null) {
     // 將秒轉換為毫秒
     const durationMs = secondsToMilliseconds(durationSec);
-    console.log("[DEBUG] 持續時間(毫秒):", durationMs);
+    Logger.debug("持續時間(毫秒)", {
+      module: "context-menu",
+      data: durationMs,
+    });
 
     // 發送訊息到背景腳本，包含元素 ID 和持續時間
-    console.log("[DEBUG] 準備發送右鍵點擊訊息");
+    Logger.debug("準備發送右鍵點擊訊息", { module: "context-menu" });
     sendRightClickMessage(id, null, null, durationMs);
   } else {
-    console.log("[DEBUG] 無法從滑桿獲取持續時間");
+    Logger.debug("無法從滑桿獲取持續時間", { module: "context-menu" });
   }
 }
 
@@ -99,58 +112,80 @@ function sendRightClickMessage(
     durationMs,
   };
 
-  console.log("[DEBUG] 準備發送訊息到背景腳本:", message);
+  Logger.debug("準備發送訊息到背景腳本", {
+    module: "context-menu",
+    data: message,
+  });
 
   // 使用 window.sendToBackground 發送訊息
   if (window.sendToBackground) {
     try {
       // 添加錯誤處理
       window.sendToBackground(message);
-      console.log("[DEBUG] 訊息已發送到背景腳本");
+      Logger.debug("訊息已發送到背景腳本", { module: "context-menu" });
     } catch (error) {
-      console.error("[DEBUG] 發送訊息到背景腳本時發生錯誤:", error);
+      Logger.error("發送訊息到背景腳本時發生錯誤", {
+        module: "context-menu",
+        data: error,
+      });
 
       // 如果使用 sendToBackground 失敗，嘗試使用 chrome.runtime.sendMessage
       if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
         try {
           chrome.runtime.sendMessage(message, (response) => {
-            console.log("[DEBUG] chrome.runtime.sendMessage 回應:", response);
+            Logger.debug("chrome.runtime.sendMessage 回應", {
+              module: "context-menu",
+              data: response,
+            });
           });
-          console.log("[DEBUG] 已使用 chrome.runtime.sendMessage 發送訊息");
+          Logger.debug("已使用 chrome.runtime.sendMessage 發送訊息", {
+            module: "context-menu",
+          });
         } catch (chromeError) {
-          console.error(
-            "[DEBUG] 使用 chrome.runtime.sendMessage 發生錯誤:",
-            chromeError
-          );
+          Logger.error("使用 chrome.runtime.sendMessage 發生錯誤", {
+            module: "context-menu",
+            data: chromeError,
+          });
         }
       }
     }
   } else {
     // 如果沒有 sendToBackground 函數，嘗試使用 chrome.runtime.sendMessage
-    console.warn(
-      "[DEBUG] sendToBackground 函數不存在，嘗試使用 chrome.runtime.sendMessage"
+    Logger.warn(
+      "sendToBackground 函數不存在，嘗試使用 chrome.runtime.sendMessage",
+      { module: "context-menu" }
     );
 
     if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
       try {
         chrome.runtime.sendMessage(message, (response) => {
-          console.log("[DEBUG] chrome.runtime.sendMessage 回應:", response);
+          Logger.debug("chrome.runtime.sendMessage 回應", {
+            module: "context-menu",
+            data: response,
+          });
         });
-        console.log("[DEBUG] 已使用 chrome.runtime.sendMessage 發送訊息");
+        Logger.debug("已使用 chrome.runtime.sendMessage 發送訊息", {
+          module: "context-menu",
+        });
       } catch (error) {
-        console.error(
-          "[DEBUG] 使用 chrome.runtime.sendMessage 發生錯誤:",
-          error
-        );
+        Logger.error("使用 chrome.runtime.sendMessage 發生錯誤", {
+          module: "context-menu",
+          data: error,
+        });
       }
     } else {
-      console.error("[DEBUG] 無法發送訊息到背景腳本，所有可用的方法都失敗");
+      Logger.error("無法發送訊息到背景腳本，所有可用的方法都失敗", {
+        module: "context-menu",
+      });
     }
   }
 
-  console.log("發送右鍵點擊訊息", {
-    elementId,
-    downloadUrl: downloadUrl ? downloadUrl.substring(0, 50) + "..." : null,
-    lastModified,
+  Logger.info("發送右鍵點擊訊息", {
+    module: "context-menu",
+    data: {
+      elementId,
+      downloadUrl: downloadUrl ? downloadUrl.substring(0, 50) + "..." : null,
+      lastModified,
+    },
   });
 }
