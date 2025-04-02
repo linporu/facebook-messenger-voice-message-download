@@ -3,17 +3,16 @@
  * 使用 Chrome 的 webRequest API 監控網路請求，用於攔截語音訊息的下載 URL
  */
 
-// 添加調試資訊
-console.log("[DEBUG-WEBREQUEST] 開始導入 extractDurationFunctions.js");
-
 import {
   extractDurationFromContentDisposition,
   extractDurationFromUrl,
   isLikelyAudioFile,
 } from "../voice-detector/extractDurationFunctions.js";
-
-console.log("[DEBUG-WEBREQUEST] 導入 extractDurationFunctions.js 成功");
 import { registerDownloadUrl } from "./data-store.js";
+import { Logger } from "../utils/logger.js";
+
+// 創建模組特定的日誌記錄器
+const logger = Logger.createModuleLogger("web-request-interceptor");
 
 // 語音訊息 URL 的匹配模式
 const VOICE_MESSAGE_URL_PATTERNS = [
@@ -52,25 +51,24 @@ const AUDIO_KEYWORDS = [
  */
 export function initWebRequestInterceptor(voiceMessages) {
   try {
-    console.log("[DEBUG-BACKGROUND] 初始化 webRequest 攔截器");
-    console.log(
-      "[DEBUG-WEBREQUEST] voiceMessages 參數:",
-      voiceMessages ? "存在" : "不存在"
-    );
+    logger.debug("初始化 webRequest 攔截器");
+    logger.debug("voiceMessages 參數", {
+      exists: voiceMessages ? true : false,
+    });
 
     // 記錄初始化時間，用於調試
     const initTime = new Date().toISOString();
-    console.log(`[DEBUG-WEBREQUEST] 攔截器初始化時間: ${initTime}`);
+    logger.debug("攔截器初始化時間", { time: initTime });
 
     if (!chrome || !chrome.webRequest) {
-      console.error("[DEBUG-WEBREQUEST] chrome.webRequest API 不可用");
+      logger.error("chrome.webRequest API 不可用");
       return;
     }
 
-    console.log("[DEBUG-WEBREQUEST] chrome.webRequest API 可用");
+    logger.debug("chrome.webRequest API 可用");
 
     // 監聽完成的請求
-    console.log("[DEBUG-WEBREQUEST] 設置 onCompleted 監聽器");
+    logger.debug("設置 onCompleted 監聽器");
     chrome.webRequest.onCompleted.addListener(
       (details) => {
         handleCompletedRequest(voiceMessages, details);
@@ -78,10 +76,10 @@ export function initWebRequestInterceptor(voiceMessages) {
       { urls: VOICE_MESSAGE_URL_PATTERNS },
       ["responseHeaders"]
     );
-    console.log("[DEBUG-WEBREQUEST] onCompleted 監聽器設置完成");
+    logger.debug("onCompleted 監聽器設置完成");
 
     // 監聽請求頭，用於獲取更多資訊
-    console.log("[DEBUG-WEBREQUEST] 設置 onHeadersReceived 監聽器");
+    logger.debug("設置 onHeadersReceived 監聽器");
     chrome.webRequest.onHeadersReceived.addListener(
       (details) => {
         handleHeadersReceived(voiceMessages, details);
@@ -89,10 +87,10 @@ export function initWebRequestInterceptor(voiceMessages) {
       { urls: VOICE_MESSAGE_URL_PATTERNS },
       ["responseHeaders"]
     );
-    console.log("[DEBUG-WEBREQUEST] onHeadersReceived 監聽器設置完成");
+    logger.debug("onHeadersReceived 監聽器設置完成");
 
-    // 監聽所有請求，用於調試和攔截
-    console.log("[DEBUG-WEBREQUEST] 設置 onBeforeRequest 監聽器");
+    // 監聽所有請求，用於調試和攝截
+    logger.debug("設置 onBeforeRequest 監聽器");
     chrome.webRequest.onBeforeRequest.addListener(
       (details) => {
         // 只處理 GET 請求
@@ -106,7 +104,7 @@ export function initWebRequestInterceptor(voiceMessages) {
             url.includes("voice") ||
             url.includes("fbsbx.com")
           ) {
-            console.log("[DEBUG-WEBREQUEST] 提前偵測到可能的語音訊息請求:", {
+            logger.debug("提前偵測到可能的語音訊息請求", {
               url: url.substring(0, 150) + "...",
               type: details.type,
               method: details.method,
@@ -119,7 +117,7 @@ export function initWebRequestInterceptor(voiceMessages) {
         urls: VOICE_MESSAGE_URL_PATTERNS,
       }
     );
-    console.log("[DEBUG-WEBREQUEST] onBeforeRequest 監聽器設置完成");
+    logger.debug("onBeforeRequest 監聽器設置完成");
 
     // 監聽請求頭發送
     chrome.webRequest.onSendHeaders.addListener(
@@ -134,13 +132,13 @@ export function initWebRequestInterceptor(voiceMessages) {
     // 監聽內容腳本的訊息
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.action === "contentScriptInitialized") {
-        console.log("[DEBUG-BACKGROUND] 收到內容腳本初始化訊息:", {
+        logger.debug("收到內容腳本初始化訊息", {
           url: message.url,
           tabId: sender.tab?.id,
         });
         sendResponse({ success: true });
       } else if (message.action === "blobUrlDetected") {
-        console.log("[DEBUG-WEBREQUEST] 收到 blob URL 偵測訊息:", {
+        logger.debug("收到 blob URL 偵測訊息", {
           blobUrl: message.blobUrl,
           blobType: message.blobType,
           blobSize: message.blobSize,
@@ -155,15 +153,14 @@ export function initWebRequestInterceptor(voiceMessages) {
       return true;
     });
 
-    console.log(
-      "[DEBUG-BACKGROUND] webRequest 攔截器已初始化，監聽以下 URL 模式:",
-      VOICE_MESSAGE_URL_PATTERNS
-    );
+    logger.info("webRequest 攔截器已初始化", {
+      patterns: VOICE_MESSAGE_URL_PATTERNS,
+    });
   } catch (error) {
-    console.error(
-      "[DEBUG-WEBREQUEST] 初始化 webRequest 攔截器時發生錯誤:",
-      error
-    );
+    logger.error("初始化 webRequest 攔截器時發生錯誤", {
+      error: error.message,
+      stack: error.stack,
+    });
   }
 }
 
@@ -177,7 +174,7 @@ export function initWebRequestInterceptor(voiceMessages) {
  */
 export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
   try {
-    console.log("[DEBUG-WEBREQUEST] 設置 Blob URL 訊息監聽器");
+    logger.debug("設置 Blob URL 訊息監聽器");
 
     const { blobUrl, blobType, blobSize, timestamp, durationMs } = message;
 
@@ -188,7 +185,7 @@ export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
         blobType.includes("video") ||
         blobType.includes("mp4"))
     ) {
-      console.log("[DEBUG-WEBREQUEST] 偵測到音訊相關的 blob URL:", {
+      logger.debug("偵測到音訊相關的 blob URL", {
         blobUrl,
         blobType,
         blobSize,
@@ -197,9 +194,7 @@ export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
 
       // 如果已有持續時間資訊，直接註冊到 voiceMessages
       if (durationMs) {
-        console.log(
-          `[DEBUG-WEBREQUEST] Blob URL 已有持續時間資訊: ${durationMs}ms，註冊到 voiceMessages`
-        );
+        logger.debug("Blob URL 已有持續時間資訊", { durationMs });
 
         // 使用 registerDownloadUrl 函數將 Blob URL 註冊到 voiceMessages
         const id = voiceMessages.registerDownloadUrl(
@@ -209,12 +204,13 @@ export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
           null // 沒有 lastModified 資訊
         );
 
-        console.log(
-          `[DEBUG-WEBREQUEST] 成功註冊 Blob URL，ID: ${id}，持續時間: ${durationMs}ms`
-        );
+        logger.debug("成功註冊 Blob URL", {
+          id,
+          durationMs,
+        });
       } else {
         // 沒有持續時間資訊，需要計算
-        console.log("[DEBUG-WEBREQUEST] Blob URL 沒有持續時間資訊，需要計算");
+        logger.debug("Blob URL 沒有持續時間資訊，需要計算");
 
         // 發送訊息到內容腳本，要求計算持續時間
         chrome.tabs.sendMessage(
@@ -227,24 +223,26 @@ export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
           },
           (response) => {
             if (chrome.runtime.lastError) {
-              console.error(
-                "[DEBUG-WEBREQUEST] 發送計算 blob 持續時間要求時發生錯誤:",
-                chrome.runtime.lastError
-              );
+              logger.error("發送計算 blob 持續時間要求時發生錯誤", {
+                error: chrome.runtime.lastError,
+              });
               return;
             }
 
-            console.log("[DEBUG-WEBREQUEST] 已發送計算 blob 持續時間要求");
+            logger.debug("已發送計算 blob 持續時間要求");
           }
         );
       }
 
-      console.log(
-        "[DEBUG-WEBREQUEST] 注意：Blob URL 已存儲，但不會自動下載。用戶需要右鍵點擊才會下載。"
+      logger.info(
+        "注意：Blob URL 已存儲，但不會自動下載。用戶需要右鍵點擊才會下載。"
       );
     }
   } catch (error) {
-    console.error("[DEBUG-WEBREQUEST] 處理 blob URL 訊息時發生錯誤:", error);
+    logger.error("處理 blob URL 訊息時發生錯誤", {
+      error: error.message,
+      stack: error.stack,
+    });
   }
 }
 
@@ -265,7 +263,7 @@ function handleCompletedRequest(voiceMessages, details) {
       url.includes("voice") ||
       url.includes("fbsbx.com")
     ) {
-      console.log("[DEBUG-WEBREQUEST] 偵測到語音訊息請求:", {
+      logger.debug("偵測到語音訊息請求", {
         url: details.url.substring(0, 150) + "...",
         type: details.type,
         statusCode: details.statusCode,
@@ -281,17 +279,17 @@ function handleCompletedRequest(voiceMessages, details) {
       details.method !== "GET" ||
       (details.statusCode !== 200 && details.statusCode !== 206)
     ) {
-      console.log(
-        `[DEBUG-WEBREQUEST] 跳過非 GET 或非成功狀態的請求: ${details.method} ${details.statusCode}`
-      );
+      logger.debug("跳過非 GET 或非成功狀態的請求", {
+        method: details.method,
+        statusCode: details.statusCode,
+      });
       return;
     }
 
-    console.log(
-      `[DEBUG-WEBREQUEST] 處理成功的 GET 請求: ${
-        details.statusCode
-      } ${details.url.substring(0, 100)}...`
-    );
+    logger.debug("處理成功的 GET 請求", {
+      statusCode: details.statusCode,
+      url: details.url.substring(0, 100) + "...",
+    });
 
     // 從 URL 和標頭中提取資訊
     let durationMs = null;
@@ -306,13 +304,10 @@ function handleCompletedRequest(voiceMessages, details) {
         if (headerName === "content-disposition") {
           durationMs = extractDurationFromContentDisposition(header.value);
           if (durationMs) {
-            console.log(
-              "[DEBUG-WEBREQUEST] 從 content-disposition 提取持續時間:",
-              {
-                header: header.value,
-                durationMs,
-              }
-            );
+            logger.debug("從 content-disposition 提取持續時間", {
+              header: header.value,
+              durationMs,
+            });
           }
         } else if (headerName === "last-modified") {
           lastModified = header.value;
@@ -328,7 +323,7 @@ function handleCompletedRequest(voiceMessages, details) {
     if (!durationMs) {
       durationMs = extractDurationFromUrl(url);
       if (durationMs) {
-        console.log("[DEBUG-WEBREQUEST] 從 URL 提取持續時間:", {
+        logger.debug("從 URL 提取持續時間", {
           url: url.substring(0, 100),
           durationMs,
         });
@@ -337,7 +332,7 @@ function handleCompletedRequest(voiceMessages, details) {
 
     // 如果找到持續時間，註冊下載 URL
     if (durationMs) {
-      console.log("[DEBUG-WEBREQUEST] 找到語音訊息下載 URL:", {
+      logger.info("找到語音訊息下載 URL", {
         url: url.substring(0, 100) + "...",
         durationMs,
         lastModified,
@@ -346,7 +341,7 @@ function handleCompletedRequest(voiceMessages, details) {
       });
 
       // 輸出 voiceMessages 的狀態
-      console.log("[DEBUG-WEBREQUEST] 註冊前 voiceMessages 狀態:", {
+      logger.debug("註冊前 voiceMessages 狀態", {
         exists: !!voiceMessages,
         mapSize: voiceMessages ? voiceMessages.items.size : 0,
       });
@@ -358,10 +353,10 @@ function handleCompletedRequest(voiceMessages, details) {
         url,
         lastModified
       );
-      console.log("[DEBUG-WEBREQUEST] 註冊下載 URL 完成，返回 ID:", id);
+      logger.debug("註冊下載 URL 完成", { id });
 
       // 輸出註冊後的狀態
-      console.log("[DEBUG-WEBREQUEST] 註冊後 voiceMessages 狀態:", {
+      logger.debug("註冊後 voiceMessages 狀態", {
         mapSize: voiceMessages.items.size,
         hasItem: voiceMessages.items.has(id),
         item: voiceMessages.items.get(id)
@@ -384,7 +379,7 @@ function handleCompletedRequest(voiceMessages, details) {
           ((fileSizeBytes * 8) / (32 * 1024)) * 1000
         );
 
-        console.log("[DEBUG-WEBREQUEST] 根據檔案大小估計持續時間:", {
+        logger.debug("根據檔案大小估計持續時間", {
           url: url.substring(0, 100) + "...",
           fileSizeBytes,
           estimatedDurationMs,
@@ -402,7 +397,10 @@ function handleCompletedRequest(voiceMessages, details) {
       }
     }
   } catch (error) {
-    console.error("[DEBUG-WEBREQUEST] 處理請求時發生錯誤:", error);
+    logger.error("處理請求時發生錯誤", {
+      error: error.message,
+      stack: error.stack,
+    });
   }
 }
 
@@ -456,7 +454,7 @@ function handleHeadersReceived(voiceMessages, details) {
         durationMs = extractDurationFromUrl(url);
       }
 
-      console.log("[DEBUG-WEBREQUEST] 偵測到語音訊息檔案:", {
+      logger.debug("偵測到語音訊息檔案", {
         url: details.url.substring(0, 100) + "...",
         contentType,
         contentLength,
@@ -475,7 +473,7 @@ function handleHeadersReceived(voiceMessages, details) {
             ((fileSizeBytes * 8) / (32 * 1024)) * 1000
           );
 
-          console.log("[DEBUG-WEBREQUEST] 根據檔案大小估計的持續時間:", {
+          logger.debug("根據檔案大小估計的持續時間", {
             fileSizeBytes,
             estimatedDurationMs,
           });
@@ -483,6 +481,9 @@ function handleHeadersReceived(voiceMessages, details) {
       }
     }
   } catch (error) {
-    console.error("[DEBUG-WEBREQUEST] 處理標頭時發生錯誤:", error);
+    logger.error("處理標頭時發生錯誤", {
+      error: error.message,
+      stack: error.stack,
+    });
   }
 }

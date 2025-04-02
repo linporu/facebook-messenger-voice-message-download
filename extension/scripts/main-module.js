@@ -6,6 +6,10 @@
 
 import { initDomDetector } from "./voice-detector/dom-detector.js";
 import { initContextMenuHandler } from "./voice-detector/context-menu-handler.js";
+import { Logger } from "./utils/logger.js";
+
+// 創建模組特定的日誌記錄器
+const logger = Logger.createModuleLogger('main-module');
 
 // 全局標記，用於識別擴充功能自己創建的 blob URL
 // 使用 WeakMap 避免記憶體洩漏
@@ -33,7 +37,7 @@ const processedBlobUrls = new Set();
 setInterval(() => {
   // 清空已處理的 URL 集合
   processedBlobUrls.clear();
-  console.log("[DEBUG-BLOB] 已清空處理過的 blob URL 記錄");
+  logger.debug("已清空處理過的 blob URL 記錄", { module: 'blob-monitor' });
 }, 300000); // 每 5 分鐘清空一次
 
 /**
@@ -47,10 +51,10 @@ async function getDurationFromBlob(blob) {
   // 直接使用 Web Audio API，不再嘗試 Audio 元素
   // 這可以減少資源消耗和錯誤機率
   try {
-    console.log("[DEBUG-BLOB] 開始從 Blob 提取音訊持續時間");
+    logger.debug("開始從 Blob 提取音訊持續時間", { module: 'blob-monitor' });
     return await tryWebAudioAPI(blob);
   } catch (error) {
-    console.error("[DEBUG-BLOB] 提取持續時間失敗:", error);
+    logger.error("提取持續時間失敗", { module: 'blob-monitor', error });
     throw error;
   }
 }
@@ -62,12 +66,12 @@ async function getDurationFromBlob(blob) {
  * @returns {Promise<number>} - 返回音訊持續時間（毫秒）的 Promise
  */
 async function tryWebAudioAPI(blob) {
-  console.log("[DEBUG-BLOB] 使用 Web Audio API 提取持續時間");
+  logger.debug("使用 Web Audio API 提取持續時間", { module: 'blob-monitor' });
 
   return new Promise((resolve, reject) => {
     // 設置超時處理，確保即使解碼失敗也能正確釋放資源
     const timeoutId = setTimeout(() => {
-      console.error("[DEBUG-BLOB] Web Audio API 解碼超時");
+      logger.error("Web Audio API 解碼超時", { module: 'blob-monitor' });
       // 如果已創建 audioContext，確保關閉
       if (
         typeof audioContext !== "undefined" &&
@@ -76,7 +80,7 @@ async function tryWebAudioAPI(blob) {
         try {
           audioContext.close();
         } catch (err) {
-          console.error("[DEBUG-BLOB] 關閉 AudioContext 時發生錯誤:", err);
+          logger.error("關閉 AudioContext 時發生錯誤", { module: 'blob-monitor', error: err });
         }
       }
       reject(new Error("Web Audio API 解碼超時"));
@@ -94,7 +98,7 @@ async function tryWebAudioAPI(blob) {
           try {
             audioContext.close();
           } catch (err) {
-            console.error("[DEBUG-BLOB] 關閉 AudioContext 時發生錯誤:", err);
+            logger.error("關閉 AudioContext 時發生錯誤", { module: 'blob-monitor', error: err });
           }
         }
       };
@@ -110,19 +114,20 @@ async function tryWebAudioAPI(blob) {
             (audioBuffer) => {
               // 獲取持續時間（秒）並轉換為毫秒
               const durationMs = Math.round(audioBuffer.duration * 1000);
-              console.log(
-                `[DEBUG-BLOB] 使用 Web Audio API 獲取到持續時間: ${durationMs}ms`
-              );
+              logger.debug("使用 Web Audio API 獲取到持續時間", { 
+                module: 'blob-monitor', 
+                durationMs: durationMs 
+              });
 
               // 清理資源
               cleanup();
               resolve(durationMs);
             },
             (decodeError) => {
-              console.error(
-                "[DEBUG-BLOB] 解碼音訊數據時發生錯誤:",
-                decodeError
-              );
+              logger.error("解碼音訊數據時發生錯誤", { 
+                module: 'blob-monitor', 
+                error: decodeError 
+              });
 
               // 清理資源
               cleanup();
@@ -130,7 +135,7 @@ async function tryWebAudioAPI(blob) {
             }
           );
         } catch (decodeError) {
-          console.error("[DEBUG-BLOB] 處理音訊數據時發生錯誤:", decodeError);
+          logger.error("處理音訊數據時發生錯誤", { module: 'blob-monitor', error: decodeError });
 
           // 清理資源
           cleanup();
@@ -139,7 +144,7 @@ async function tryWebAudioAPI(blob) {
       };
 
       fileReader.onerror = function (readError) {
-        console.error("[DEBUG-BLOB] 讀取 Blob 時發生錯誤:", readError);
+        logger.error("讀取 Blob 時發生錯誤", { module: 'blob-monitor', error: readError });
 
         // 清理資源
         cleanup();
@@ -149,7 +154,7 @@ async function tryWebAudioAPI(blob) {
       // 開始讀取 Blob
       fileReader.readAsArrayBuffer(blob);
     } catch (error) {
-      console.error("[DEBUG-BLOB] 使用 Web Audio API 提取持續時間失敗:", error);
+      logger.error("使用 Web Audio API 提取持續時間失敗", { module: 'blob-monitor', error });
       clearTimeout(timeoutId);
       reject(error);
     }
@@ -163,7 +168,7 @@ async function tryWebAudioAPI(blob) {
  * 已優化：增加安全標記、節流控制、更精確的音訊偵測
  */
 function setupBlobUrlMonitor() {
-  console.log("[DEBUG-BLOB] 設置 Blob URL 監控");
+  logger.info("設置 Blob URL 監控", { module: 'blob-monitor' });
 
   // 保存原始的 URL.createObjectURL 方法
   const originalCreateObjectURL = URL.createObjectURL;
@@ -230,23 +235,21 @@ function setupBlobUrlMonitor() {
         blob.size < 10 * 1024 * 1024;
 
       // 輸出詳細診斷資訊
-      console.log(
-        JSON.stringify({
-          prefix: "[DEBUG-BLOB-DETAILED]",
-          blobUrl: urlFeatures,
-          blobType: blob.type,
-          blobSizeBytes: blob.size,
-          blobSizeKB: blobSizeKB,
-          sizeCategory: sizeCategory,
-          isLikelyAudio: isLikelyAudio,
-          timestamp: timestamp,
-          pageUrl: pageUrl,
-          stackTraceHint: stackTrace ? stackTrace.split("\n")[2] : "無法獲取",
-          creationContext: document.activeElement
-            ? document.activeElement.tagName
-            : "無法獲取",
-        })
-      );
+      logger.debug("Blob 詳細資訊", {
+        module: 'blob-monitor',
+        blobUrl: urlFeatures,
+        blobType: blob.type,
+        blobSizeBytes: blob.size,
+        blobSizeKB: blobSizeKB,
+        sizeCategory: sizeCategory,
+        isLikelyAudio: isLikelyAudio,
+        timestamp: timestamp,
+        pageUrl: pageUrl,
+        stackTraceHint: stackTrace ? stackTrace.split("\n")[2] : "無法獲取",
+        creationContext: document.activeElement
+          ? document.activeElement.tagName
+          : "無法獲取"
+      });
 
       if (!isLikelyAudio) {
         return blobUrl; // 如果不可能是音訊，直接返回
@@ -263,9 +266,10 @@ function setupBlobUrlMonitor() {
         .then((durationMs) => {
           // 驗證持續時間是否合理（大於 0.5 秒且小於 10 分鐘）
           if (durationMs < 500 || durationMs > 600000) {
-            console.log(
-              `[DEBUG-BLOB] 偵測到的持續時間 ${durationMs}ms 不在合理範圍內，跳過`
-            );
+            logger.debug("偵測到的持續時間不在合理範圍內，跳過", { 
+              module: 'blob-monitor', 
+              durationMs: durationMs 
+            });
             return;
           }
 
@@ -281,17 +285,15 @@ function setupBlobUrlMonitor() {
             durationCategory = "長 (>1分鐘)";
           }
 
-          console.log(
-            JSON.stringify({
-              prefix: "[DEBUG-BLOB-DURATION]",
-              blobUrl: urlFeatures,
-              durationMs: durationMs,
-              durationCategory: durationCategory,
-              blobType: blob.type,
-              blobSizeKB: blobSizeKB,
-              timestamp: timestamp,
-            })
-          );
+          logger.info("Blob 持續時間資訊", {
+            module: 'blob-monitor',
+            blobUrl: urlFeatures,
+            durationMs: durationMs,
+            durationCategory: durationCategory,
+            blobType: blob.type,
+            blobSizeKB: blobSizeKB,
+            timestamp: timestamp
+          });
 
           // 將 Blob URL 與持續時間一起存儲到 voiceMessagesStore，但不自動下載
           window.sendToBackground({
@@ -305,27 +307,24 @@ function setupBlobUrlMonitor() {
             timestamp: timestamp,
           });
 
-          console.log(
-            `[DEBUG-BLOB] Blob URL 已註冊，持續時間: ${durationMs}ms。等待用戶右鍵點擊下載。`
-          );
+          logger.info("Blob URL 已註冊，等待用戶右鍵點擊下載", { 
+            module: 'blob-monitor', 
+            durationMs: durationMs 
+          });
         })
         .catch((error) => {
           // 錯誤處理：只在偵測到可能的音訊檔案但無法計算持續時間時記錄
           // 減少輸出錯誤日誌的頻率
-          console.error(
-            "[DEBUG-BLOB] 計算 Blob 持續時間失敗，可能不是音訊檔案"
-          );
+          logger.warn("計算 Blob 持續時間失敗，可能不是音訊檔案", { module: 'blob-monitor' });
 
-          console.log(
-            JSON.stringify({
-              prefix: "[DEBUG-BLOB-ERROR]",
-              blobUrl: urlFeatures,
-              blobType: blob.type,
-              blobSizeKB: blobSizeKB,
-              error: error.message,
-              timestamp: timestamp,
-            })
-          );
+          logger.debug("Blob 錯誤詳情", {
+            module: 'blob-monitor',
+            blobUrl: urlFeatures,
+            blobType: blob.type,
+            blobSizeKB: blobSizeKB,
+            error: error.message,
+            timestamp: timestamp
+          });
 
           // 不再發送失敗的 blob 到背景腳本，減少資源消耗
           // 只在高可能是音訊且大小合適的情況下才註冊
@@ -343,31 +342,29 @@ function setupBlobUrlMonitor() {
               timestamp: timestamp,
             });
 
-            console.log(
-              "[DEBUG-BLOB] 雖無法計算持續時間，但仍註冊了可能的音訊 Blob URL。"
-            );
+            logger.info("雖無法計算持續時間，但仍註冊了可能的音訊 Blob URL", { module: 'blob-monitor' });
           }
         });
     } catch (error) {
       // 錯誤處理：確保即使發生錯誤也不影響原始功能
-      console.error(
-        "[DEBUG-BLOB] 處理 blob URL 時發生錯誤，不影響原始功能:",
-        error
-      );
+      logger.error("處理 blob URL 時發生錯誤，不影響原始功能", { 
+        module: 'blob-monitor', 
+        error 
+      });
     }
 
     // 返回原始的 blob URL
     return blobUrl;
   };
 
-  console.log("[DEBUG-BLOB] Blob URL 監控已設置，已優化資源使用和穩定性");
+  logger.info("Blob URL 監控已設置，已優化資源使用和穩定性", { module: 'blob-monitor' });
 }
 
 /**
  * 主要初始化函數
  */
 function initialize() {
-  console.log("初始化 Facebook Messenger 語音訊息下載器模組");
+  logger.info("初始化 Facebook Messenger 語音訊息下載器模組");
 
   // 檢查是否在支援的網站上
   const isSupportedSite =
@@ -375,7 +372,7 @@ function initialize() {
     window.location.hostname.includes("messenger.com");
 
   if (!isSupportedSite) {
-    console.log("不支援的網站，擴充功能不會啟動");
+    logger.info("不支援的網站，擴充功能不會啟動");
     return;
   }
 
@@ -388,7 +385,7 @@ function initialize() {
   // 初始化右鍵選單處理器 - 不再傳遞 voiceMessages 參數
   initContextMenuHandler();
 
-  console.log("[DEBUG-MAIN] 使用 webRequest API 模式，不再使用 fetch 代理攝截");
+  logger.debug("使用 webRequest API 模式，不再使用 fetch 代理攝截");
 
   // 通知背景腳本內容腳本已初始化
   // 注意：在頁面上下文中不能直接使用 chrome API，改用 window.postMessage
@@ -429,7 +426,7 @@ function initialize() {
   // 向內容腳本發送訊息的輔助函數
   window.sendToBackground = function (message) {
     try {
-      console.log("[DEBUG-MAIN] 準備發送訊息到背景腳本:", message);
+      logger.debug("準備發送訊息到背景腳本", { message });
 
       // 使用 postMessage 發送訊息
       window.postMessage(
@@ -440,15 +437,15 @@ function initialize() {
         "*"
       );
 
-      console.log("[DEBUG-MAIN] 訊息已發送到背景腳本");
+      logger.debug("訊息已發送到背景腳本");
       return true;
     } catch (error) {
-      console.error("[DEBUG-MAIN] 發送訊息到背景腳本時發生錯誤:", error);
+      logger.error("發送訊息到背景腳本時發生錯誤", { error });
       return false;
     }
   };
 
-  console.log("Facebook Messenger 語音訊息下載器模組已啟動");
+  logger.info("Facebook Messenger 語音訊息下載器模組已啟動");
 }
 
 // 當 DOM 完全載入後初始化

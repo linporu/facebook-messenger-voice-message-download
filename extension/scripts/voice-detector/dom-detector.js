@@ -14,12 +14,13 @@ import {
 import { markAsVoiceMessageElement } from "../utils/dom-utils.js";
 import { generateVoiceMessageId } from "../utils/id-generator.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
+import { Logger } from "../utils/logger.js";
 
 /**
  * 初始化 DOM 偵測器
  */
 export function initDomDetector() {
-  console.log("初始化 DOM 偵測器");
+  Logger.info("初始化 DOM 偵測器", { module: "dom-detector" });
 
   // 立即執行一次偵測
   detectVoiceMessages();
@@ -112,11 +113,14 @@ function processSliderElement(sliderElement) {
     });
 
     // 輸出偵測到的語音訊息
-    console.log("找到語音訊息", {
-      element: sliderElement,
-      durationSec,
-      durationMs,
-      elementId,
+    Logger.debug("找到語音訊息", {
+      module: "dom-detector",
+      data: {
+        element: sliderElement,
+        durationSec,
+        durationMs,
+        elementId,
+      },
     });
   }
 }
