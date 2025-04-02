@@ -84,7 +84,7 @@ async function tryWebAudioAPI(blob) {
         }
       }
       reject(new Error("Web Audio API 解碼超時"));
-    }, 5000); // 5秒超時
+    }, TIME_CONSTANTS.AUDIO_LOAD_TIMEOUT + 2000); // 音訊載入超時加2秒
 
     try {
       // 創建 AudioContext
@@ -391,7 +391,7 @@ function initialize() {
   // 注意：在頁面上下文中不能直接使用 chrome API，改用 window.postMessage
   window.postMessage(
     {
-      type: "FROM_VOICE_MESSAGE_DOWNLOADER",
+      type: MESSAGE_TYPES.FROM_CONTENT,
       message: {
         action: "contentScriptInitialized",
         url: window.location.href,
@@ -411,7 +411,7 @@ function initialize() {
     // 處理來自內容腳本的訊息
     if (
       event.data.type &&
-      event.data.type === "FROM_VOICE_MESSAGE_DOWNLOADER_BACKGROUND"
+      event.data.type === MESSAGE_TYPES.FROM_BACKGROUND
     ) {
       // 處理來自背景腳本的訊息
       const message = event.data.message;
@@ -431,7 +431,7 @@ function initialize() {
       // 使用 postMessage 發送訊息
       window.postMessage(
         {
-          type: "FROM_VOICE_MESSAGE_DOWNLOADER",
+          type: MESSAGE_TYPES.FROM_CONTENT,
           message: message,
         },
         "*"
