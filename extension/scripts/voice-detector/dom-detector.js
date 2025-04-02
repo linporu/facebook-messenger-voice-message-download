@@ -15,6 +15,7 @@ import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
 import {
   MESSAGE_ACTIONS,
+  MESSAGE_TYPES,
   MODULE_NAMES,
   TIME_CONSTANTS,
   DOM_CONSTANTS,
@@ -109,12 +110,31 @@ function processSliderElement(sliderElement) {
     // 將持續時間轉換為毫秒
     const durationMs = secondsToMilliseconds(durationSec);
 
-    // 發送訊息到背景腳本
-    window.sendToBackground({
-      action: MESSAGE_ACTIONS.REGISTER_ELEMENT,
-      elementId: elementId,
-      durationMs: durationMs,
-    });
+    // 發送訊息到背景腳本，檢查函數是否存在
+    if (typeof window.sendToBackground === 'function') {
+      window.sendToBackground({
+        action: MESSAGE_ACTIONS.REGISTER_ELEMENT,
+        elementId: elementId,
+        durationMs: durationMs,
+      });
+    } else {
+      // 使用替代方法發送訊息
+      window.postMessage(
+        {
+          type: MESSAGE_TYPES.FROM_CONTENT,
+          message: {
+            action: MESSAGE_ACTIONS.REGISTER_ELEMENT,
+            elementId: elementId,
+            durationMs: durationMs,
+          },
+        },
+        "*"
+      );
+      
+      Logger.warn("window.sendToBackground 不是函數，使用替代方法", {
+        module: MODULE_NAMES.DOM_DETECTOR
+      });
+    }
 
     // 輸出偵測到的語音訊息
     Logger.debug("找到語音訊息", {
