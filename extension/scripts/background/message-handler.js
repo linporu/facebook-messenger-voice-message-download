@@ -345,7 +345,7 @@ function handleRegisterElementMessage(message, sender, sendResponse) {
       currentItem.downloadUrl = matchingItem.downloadUrl;
       currentItem.lastModified = matchingItem.lastModified;
 
-      console.log("[DEBUG-BACKGROUND] 已更新元素的下載 URL:", {
+      logger.debug("已更新元素的下載 URL:", {
         elementId,
         downloadUrl: matchingItem.downloadUrl.substring(0, 50) + "...",
       });
@@ -359,10 +359,7 @@ function handleRegisterElementMessage(message, sender, sendResponse) {
             downloadUrl: matchingItem.downloadUrl,
           });
         } catch (error) {
-          console.error(
-            "[DEBUG-BACKGROUND] 發送更新訊息到內容腳本時發生錯誤:",
-            error
-          );
+          logger.error("發送更新訊息到內容腳本時發生錯誤:", error);
         }
       }
 
@@ -379,10 +376,7 @@ function handleRegisterElementMessage(message, sender, sendResponse) {
       });
     }
   } catch (error) {
-    console.error(
-      "[DEBUG-BACKGROUND] 處理語音訊息元素註冊訊息時發生錯誤:",
-      error
-    );
+    logger.error("處理語音訊息元素註冊訊息時發生錯誤:", error);
     sendResponse({ success: false, error: error.message });
   }
 }
@@ -541,9 +535,7 @@ function handleRegisterBlobUrl(message, sender, sendResponse) {
       blobSize
     );
 
-    console.log(
-      `[DEBUG-MESSAGEHANDLER] 成功註冊 Blob URL，ID: ${id}，持續時間: ${durationMs}ms`
-    );
+    logger.info(`成功註冊 Blob URL，ID: ${id}，持續時間: ${durationMs}ms`);
 
     // 輸出當前 voiceMessagesStore 的狀態
     logger.debug("voiceMessagesStore 當前項目數量", {
@@ -616,7 +608,7 @@ function handleDownloadBlobContent(message, sender, sendResponse) {
 
     // 檢查必要的參數
     if (!message.base64data || !message.blobType) {
-      console.error("[DEBUG-MESSAGEHANDLER] 缺少必要的參數");
+      logger.error("缺少必要的參數");
       sendResponse({ success: false, error: "缺少必要的參數" });
       return;
     }
@@ -624,7 +616,7 @@ function handleDownloadBlobContent(message, sender, sendResponse) {
     // 注意：在背景腳本（Service Worker）中不能使用 URL.createObjectURL
 
     // 直接使用 base64 資料，不需要轉換為 blob
-    console.log("[DEBUG-MESSAGEHANDLER] 使用 base64 資料直接下載:", {
+    logger.debug("使用 base64 資料直接下載:", {
       blobType: message.blobType,
       base64Length: message.base64data.length,
     });
