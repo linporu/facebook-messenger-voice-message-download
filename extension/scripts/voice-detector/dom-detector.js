@@ -8,10 +8,8 @@ import {
   isVoiceMessagePlayButton,
   getDurationFromSlider,
   getSliderFromPlayButton,
-  VOICE_MESSAGE_SLIDER_ARIA_LABEL,
-  VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL,
+  markAsVoiceMessageElement,
 } from "../utils/dom-utils.js";
-import { markAsVoiceMessageElement } from "../utils/dom-utils.js";
 import { generateVoiceMessageId } from "../utils/id-generator.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
@@ -19,6 +17,7 @@ import {
   MESSAGE_ACTIONS,
   MODULE_NAMES,
   TIME_CONSTANTS,
+  DOM_CONSTANTS,
 } from "../utils/constants.js";
 
 /**
@@ -63,7 +62,7 @@ export function initDomDetector() {
 export function detectVoiceMessages() {
   // 方法 1: 尋找滑桿元素
   const sliders = document.querySelectorAll(
-    `[role="slider"][aria-label="${VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
+    `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
   );
 
   for (const slider of sliders) {
@@ -72,7 +71,7 @@ export function detectVoiceMessages() {
 
   // 方法 2: 尋找播放按鈕
   const playButtons = document.querySelectorAll(
-    `[role="button"][aria-label="${VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
+    `[role="button"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
   );
 
   for (const button of playButtons) {
@@ -92,7 +91,7 @@ export function detectVoiceMessages() {
  */
 function processSliderElement(sliderElement) {
   // 檢查元素是否已經被處理過
-  if (sliderElement.hasAttribute("data-voice-message-id")) {
+  if (sliderElement.hasAttribute(DOM_CONSTANTS.VOICE_MESSAGE_ID_DATA_ATTR)) {
     return;
   }
 
