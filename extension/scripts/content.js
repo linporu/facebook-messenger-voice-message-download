@@ -4,14 +4,13 @@
  */
 
 import { Logger } from "./utils/logger.js";
+import { SUPPORTED_SITES, MESSAGE_SOURCES, MESSAGE_TYPES, MESSAGE_ACTIONS, TIME_CONSTANTS, MODULE_NAMES } from "./utils/constants.js";
 
 // 創建模組特定的日誌記錄器
-const logger = Logger.createModuleLogger("content-script");
+const logger = Logger.createModuleLogger(MODULE_NAMES.CONTENT_SCRIPT);
 
 // 檢查是否在支援的網站上
-const isSupportedSite =
-  window.location.hostname.includes("facebook.com") ||
-  window.location.hostname.includes("messenger.com");
+const isSupportedSite = SUPPORTED_SITES.DOMAINS.some(domain => window.location.hostname.includes(domain));
 
 if (!isSupportedSite) {
   logger.info("不支援的網站，擴充功能不會啟動");
@@ -36,7 +35,7 @@ if (!isSupportedSite) {
     // 處理來自主模組的訊息
     if (
       event.data.type &&
-      event.data.type === "FROM_VOICE_MESSAGE_DOWNLOADER"
+      event.data.type === MESSAGE_SOURCES.CONTENT_SCRIPT
     ) {
       logger.debug("收到主模組訊息，轉發到背景腳本", {
         message: event.data.message,
@@ -56,7 +55,7 @@ if (!isSupportedSite) {
     logger.debug("收到背景腳本訊息", { message });
 
     // 特別處理 extractBlobContent 訊息
-    if (message.action === "extractBlobContent") {
+    if (message.action === MESSAGE_ACTIONS.EXTRACT_BLOB) {
       logger.debug("收到提取 blob 內容要求", {
         blobUrl: message.blobUrl,
         blobType: message.blobType,
@@ -78,7 +77,7 @@ if (!isSupportedSite) {
     }
 
     // 處理 calculateBlobDuration 訊息
-    if (message.action === "calculateBlobDuration") {
+    if (message.action === MESSAGE_ACTIONS.CALCULATE_DURATION) {
       logger.debug("收到計算 blob 持續時間要求", {
         blobUrl: message.blobUrl,
         blobType: message.blobType,
@@ -106,7 +105,7 @@ if (!isSupportedSite) {
     // 其他訊息轉發到主模組
     window.postMessage(
       {
-        type: "FROM_VOICE_MESSAGE_DOWNLOADER_BACKGROUND",
+        type: MESSAGE_SOURCES.BACKGROUND_SCRIPT,
         message: message,
       },
       "*"
@@ -161,7 +160,7 @@ if (!isSupportedSite) {
             // 發送到背景腳本，確保包含所有必要的數據
             chrome.runtime.sendMessage(
               {
-                action: "downloadBlobContent",
+                action: MESSAGE_ACTIONS.DOWNLOAD_BLOB,
                 blobType: blob.type || blobType, // 使用 blob 的類型，如果沒有則使用傳入的類型
                 base64data: base64data,
                 requestId: requestId,
@@ -239,7 +238,7 @@ if (!isSupportedSite) {
               // 發送計算結果到背景腳本
               chrome.runtime.sendMessage(
                 {
-                  action: "registerBlobUrl",
+                  action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
                   blobUrl: blobUrl,
                   blobType: blob.type || blobType,
                   blobSize: blob.size,
@@ -300,7 +299,7 @@ if (!isSupportedSite) {
                 reject
               );
             }
-          }, 3000); // 3秒超時
+          }, TIME_CONSTANTS.AUDIO_LOAD_TIMEOUT); // 3秒超時
         } catch (error) {
           logger.error("使用 Audio 元素計算持續時間失敗", { error });
 
@@ -378,7 +377,7 @@ if (!isSupportedSite) {
               // 即使無法計算持續時間，仍然註冊 Blob URL
               chrome.runtime.sendMessage(
                 {
-                  action: "blobUrlDetected",
+                  action: MESSAGE_ACTIONS.BLOB_DETECTED,
                   blobUrl: blobUrl,
                   blobType: blobType,
                   blobSize: blob.size,

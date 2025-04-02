@@ -10,9 +10,10 @@ import { initMessageHandler } from "./background/message-handler.js";
 import { initWebRequestInterceptor } from "./background/web-request-interceptor.js";
 import { createDataStore, cleanupOldItems } from "./background/data-store.js";
 import { Logger } from "./utils/logger.js";
+import { UI_CONSTANTS, TIME_CONSTANTS, MODULE_NAMES } from "./utils/constants.js";
 
 // 創建模組特定的日誌記錄器
-const logger = Logger.createModuleLogger("background");
+const logger = Logger.createModuleLogger(MODULE_NAMES.BACKGROUND);
 
 // 添加調試資訊
 logger.debug("背景腳本開始加載");
@@ -60,7 +61,7 @@ function initialize() {
     // 設置定期清理過期項目
     setInterval(() => {
       cleanupOldItems(voiceMessages);
-    }, 30 * 60 * 1000); // 每 30 分鐘清理一次
+    }, TIME_CONSTANTS.CLEANUP_INTERVAL); // 每 30 分鐘清理一次
 
     logger.info("背景腳本初始化完成");
     return voiceMessages; // 返回語音訊息資料存儲，以便其他函數使用
@@ -76,11 +77,11 @@ chrome.runtime.onInstalled.addListener(() => {
 
   // 初始化擴充功能狀態
   chrome.action.setBadgeText({
-    text: "ON",
+    text: UI_CONSTANTS.BADGE_TEXT,
   });
 
   chrome.action.setBadgeBackgroundColor({
-    color: "#4CAF50",
+    color: UI_CONSTANTS.BADGE_COLOR,
   });
 });
 

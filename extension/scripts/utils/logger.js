@@ -3,19 +3,12 @@
  * 提供擴充功能的統一日誌記錄系統
  */
 
-// 日誌級別定義
-const LogLevel = {
-  DEBUG: 0,
-  INFO: 1,
-  WARN: 2,
-  ERROR: 3,
-  NONE: 4,
-};
+import { LOG_LEVELS } from "./constants.js";
 
 // 預設配置
 let config = {
   // 當前日誌級別，可透過設置調整
-  level: LogLevel.DEBUG,
+  level: LOG_LEVELS.DEBUG,
 
   // 是否顯示時間戳
   showTimestamp: false,
@@ -106,28 +99,28 @@ function log(level, levelValue, module, message, data) {
   // 輸出到控制台
   if (config.consoleOutput) {
     switch (levelValue) {
-      case LogLevel.DEBUG:
+      case LOG_LEVELS.DEBUG:
         if (data !== undefined) {
           console.debug(formattedMessage, data);
         } else {
           console.debug(formattedMessage);
         }
         break;
-      case LogLevel.INFO:
+      case LOG_LEVELS.INFO:
         if (data !== undefined) {
           console.info(formattedMessage, data);
         } else {
           console.info(formattedMessage);
         }
         break;
-      case LogLevel.WARN:
+      case LOG_LEVELS.WARN:
         if (data !== undefined) {
           console.warn(formattedMessage, data);
         } else {
           console.warn(formattedMessage);
         }
         break;
-      case LogLevel.ERROR:
+      case LOG_LEVELS.ERROR:
         if (data !== undefined) {
           console.error(formattedMessage, data);
         } else {
@@ -153,7 +146,7 @@ function createModuleLogger(module) {
      * @param {Object} [data] - 相關數據
      */
     debug: (message, data) => {
-      log("DEBUG", LogLevel.DEBUG, module, message, data);
+      log("DEBUG", LOG_LEVELS.DEBUG, module, message, data);
     },
 
     /**
@@ -163,7 +156,7 @@ function createModuleLogger(module) {
      * @param {Object} [data] - 相關數據
      */
     info: (message, data) => {
-      log("INFO", LogLevel.INFO, module, message, data);
+      log("INFO", LOG_LEVELS.INFO, module, message, data);
     },
 
     /**
@@ -173,7 +166,7 @@ function createModuleLogger(module) {
      * @param {Object} [data] - 相關數據
      */
     warn: (message, data) => {
-      log("WARN", LogLevel.WARN, module, message, data);
+      log("WARN", LOG_LEVELS.WARN, module, message, data);
     },
 
     /**
@@ -183,7 +176,7 @@ function createModuleLogger(module) {
      * @param {Object} [data] - 相關數據
      */
     error: (message, data) => {
-      log("ERROR", LogLevel.ERROR, module, message, data);
+      log("ERROR", LOG_LEVELS.ERROR, module, message, data);
     },
   };
 }
@@ -226,17 +219,17 @@ function setModuleLevel(module, level) {
 
 // 導出日誌系統
 export const Logger = {
-  LogLevel,
+  LogLevel: LOG_LEVELS,
   createModuleLogger,
   configure,
   setLevel,
   setModuleLevel,
 
   // 全局日誌方法
-  debug: (message, data) => log("DEBUG", LogLevel.DEBUG, null, message, data),
-  info: (message, data) => log("INFO", LogLevel.INFO, null, message, data),
-  warn: (message, data) => log("WARN", LogLevel.WARN, null, message, data),
-  error: (message, data) => log("ERROR", LogLevel.ERROR, null, message, data),
+  debug: (message, data) => log("DEBUG", LOG_LEVELS.DEBUG, null, message, data),
+  info: (message, data) => log("INFO", LOG_LEVELS.INFO, null, message, data),
+  warn: (message, data) => log("WARN", LOG_LEVELS.WARN, null, message, data),
+  error: (message, data) => log("ERROR", LOG_LEVELS.ERROR, null, message, data),
 };
 
 // 為了方便使用，提供預設導出

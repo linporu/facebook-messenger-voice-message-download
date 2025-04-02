@@ -4,23 +4,7 @@
  */
 
 import { Logger } from "./logger.js";
-
-/**
- * 語音訊息播放按鈕的 SVG 路徑
- * 用於識別語音訊息元素
- */
-export const VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH =
-  "M10 25.5v-15a1.5 1.5 0 012.17-1.34l15 7.5a1.5 1.5 0 010 2.68l-15 7.5A1.5 1.5 0 0110 25.5z";
-
-/**
- * 語音訊息播放按鈕的 aria-label
- */
-export const VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL = "播放";
-
-/**
- * 語音訊息滑桿的 aria-label
- */
-export const VOICE_MESSAGE_SLIDER_ARIA_LABEL = "音訊滑桿";
+import { DOM_CONSTANTS } from "./constants.js";
 
 /**
  * 檢查元素是否為語音訊息播放按鈕
@@ -34,13 +18,13 @@ export function isVoiceMessagePlayButton(element) {
   // 檢查 aria-label
   if (
     element.getAttribute("role") === "button" &&
-    element.getAttribute("aria-label") === VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL
+    element.getAttribute("aria-label") === DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL
   ) {
     // 檢查是否包含特定 SVG 路徑
     const svgPath = element.querySelector("path");
     if (
       svgPath &&
-      svgPath.getAttribute("d") === VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH
+      svgPath.getAttribute("d") === DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH
     ) {
       return true;
     }
@@ -50,7 +34,7 @@ export function isVoiceMessagePlayButton(element) {
     if (svg) {
       const path = svg.querySelector("path");
       return (
-        path && path.getAttribute("d") === VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH
+        path && path.getAttribute("d") === DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH
       );
     }
   }
@@ -68,7 +52,7 @@ export function isVoiceMessageSlider(element) {
   return (
     element &&
     element.getAttribute("role") === "slider" &&
-    element.getAttribute("aria-label") === VOICE_MESSAGE_SLIDER_ARIA_LABEL
+    element.getAttribute("aria-label") === DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL
   );
 }
 
@@ -115,7 +99,7 @@ export function getSliderFromPlayButton(playButtonElement) {
   while (parent) {
     // 在父元素中查找滑桿
     const slider = parent.querySelector(
-      `[role="slider"][aria-label="${VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
+      `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
     );
     if (slider) {
       return slider;
@@ -146,10 +130,10 @@ export function isPotentialVoiceMessageContainer(element) {
 
   // 檢查元素是否包含語音訊息相關元素
   const hasPlayButton = !!element.querySelector(
-    `[role="button"][aria-label="${VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
+    `[role="button"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
   );
   const hasSlider = !!element.querySelector(
-    `[role="slider"][aria-label="${VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
+    `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
   );
 
   return hasPlayButton || hasSlider;
@@ -184,7 +168,7 @@ export function findVoiceMessageElement(clickedElement) {
   // 策略 2: 在點擊元素內部查找
   Logger.debug("在元素內部尋找語音訊息元素");
   const sliderInside = clickedElement.querySelector(
-    `[role="slider"][aria-label="${VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
+    `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
   );
   if (sliderInside) {
     Logger.debug("在元素內部找到語音訊息滑杆");
@@ -192,7 +176,7 @@ export function findVoiceMessageElement(clickedElement) {
   }
 
   const playButtonInside = clickedElement.querySelector(
-    `[role="button"][aria-label="${VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
+    `[role="button"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
   );
   if (playButtonInside && isVoiceMessagePlayButton(playButtonInside)) {
     Logger.debug("在元素內部找到語音訊息播放按鈕");
@@ -215,7 +199,7 @@ export function findVoiceMessageElement(clickedElement) {
 
       // 在父元素中查找滑杆
       const slider = parent.querySelector(
-        `[role="slider"][aria-label="${VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
+        `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
       );
       if (slider) {
         Logger.debug("在容器中找到語音訊息滑杆");
@@ -224,7 +208,7 @@ export function findVoiceMessageElement(clickedElement) {
 
       // 在父元素中查找播放按鈕
       const playButton = parent.querySelector(
-        `[role="button"][aria-label="${VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
+        `[role="button"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
       );
       if (playButton && isVoiceMessagePlayButton(playButton)) {
         Logger.debug("在容器中找到語音訊息播放按鈕");
@@ -261,8 +245,8 @@ export function markAsVoiceMessageElement(element, id) {
     return;
   }
 
-  element.setAttribute("data-voice-message-element", "true");
-  element.setAttribute("data-voice-message-id", id);
+  element.setAttribute(DOM_CONSTANTS.VOICE_MESSAGE_ELEMENT_DATA_ATTR, "true");
+  element.setAttribute(DOM_CONSTANTS.VOICE_MESSAGE_ID_DATA_ATTR, id);
 
   Logger.debug("標記語音訊息元素成功", {
     elementTag: element.tagName,
