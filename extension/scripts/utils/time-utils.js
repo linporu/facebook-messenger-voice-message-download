@@ -4,6 +4,7 @@
  */
 
 import { Logger } from "./logger.js";
+import { FILENAME_CONSTANTS } from "./constants.js";
 
 /**
  * 將 HTTP Last-Modified 標頭格式的時間轉換為 Date 物件
@@ -63,7 +64,7 @@ export function generateVoiceMessageFilename(lastModified) {
     ? parseLastModifiedHeader(lastModified)
     : new Date();
   const formattedDate = formatDateForFilename(date || new Date());
-  return `voice-message-${formattedDate}`;
+  return `${FILENAME_CONSTANTS.VOICE_MESSAGE_FILENAME_PREFIX}${formattedDate}`;
 }
 
 /**

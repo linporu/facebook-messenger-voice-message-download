@@ -3,6 +3,7 @@
  */
 
 import { Logger } from "../utils/logger.js";
+import { MODULE_NAMES } from "../utils/constants.js";
 
 /**
  * 從 content-disposition 標頭提取持續時間
@@ -12,12 +13,14 @@ import { Logger } from "../utils/logger.js";
  */
 export function extractDurationFromContentDisposition(contentDisposition) {
   if (!contentDisposition) {
-    Logger.debug("content-disposition 為空", { module: "network" });
+    Logger.debug("content-disposition 為空", {
+      module: MODULE_NAMES.WEB_REQUEST,
+    });
     return null;
   }
 
   Logger.debug("分析 content-disposition", {
-    module: "network",
+    module: MODULE_NAMES.WEB_REQUEST,
     data: contentDisposition,
   });
 
@@ -30,7 +33,7 @@ export function extractDurationFromContentDisposition(contentDisposition) {
   if (oldFormatMatch && oldFormatMatch[1]) {
     const durationMs = parseInt(oldFormatMatch[1], 10);
     Logger.debug("匹配到舊格式持續時間", {
-      module: "network",
+      module: MODULE_NAMES.WEB_REQUEST,
       data: durationMs,
     });
     return isNaN(durationMs) ? null : durationMs;
@@ -40,18 +43,21 @@ export function extractDurationFromContentDisposition(contentDisposition) {
   const durationMatch = contentDisposition.match(/duration=(\d+)/);
   if (durationMatch && durationMatch[1]) {
     const durationMs = parseInt(durationMatch[1], 10);
-    Logger.debug("匹配到持續時間標記", { module: "network", data: durationMs });
+    Logger.debug("匹配到持續時間標記", {
+      module: MODULE_NAMES.WEB_REQUEST,
+      data: durationMs,
+    });
     return isNaN(durationMs) ? null : durationMs;
   }
 
   // 嘗試其他可能的檔案名格式
   const filenameMatch = contentDisposition.match(/filename=["']?([^"']+)["']?/);
   Logger.debug("檔案名匹配", {
-    module: "network",
+    module: MODULE_NAMES.WEB_REQUEST,
     data: filenameMatch ? filenameMatch[1] : null,
   });
 
-  Logger.debug("未匹配到持續時間模式", { module: "network" });
+  Logger.debug("未匹配到持續時間模式", { module: MODULE_NAMES.WEB_REQUEST });
   return null;
 }
 
@@ -67,7 +73,7 @@ export function extractDurationFromUrl(url) {
   }
 
   Logger.debug("嘗試從 URL 提取持續時間", {
-    module: "network",
+    module: MODULE_NAMES.WEB_REQUEST,
     data: url.substring(0, 100),
   });
 
@@ -79,7 +85,7 @@ export function extractDurationFromUrl(url) {
   if (audioclipMatch && audioclipMatch[1]) {
     const durationMs = parseInt(audioclipMatch[1], 10);
     Logger.debug("從 URL audioclip 格式匹配到持續時間", {
-      module: "network",
+      module: MODULE_NAMES.WEB_REQUEST,
       data: durationMs,
     });
     return isNaN(durationMs) ? null : durationMs;
@@ -91,7 +97,7 @@ export function extractDurationFromUrl(url) {
   if (durationMatch && durationMatch[1]) {
     const durationMs = parseInt(durationMatch[1], 10);
     Logger.debug("從 URL 參數匹配到持續時間", {
-      module: "network",
+      module: MODULE_NAMES.WEB_REQUEST,
       data: durationMs,
     });
     return isNaN(durationMs) ? null : durationMs;
@@ -103,13 +109,13 @@ export function extractDurationFromUrl(url) {
   if (lengthMatch && lengthMatch[1]) {
     const durationMs = parseInt(lengthMatch[1], 10);
     Logger.debug("從 URL length 參數匹配到持續時間", {
-      module: "network",
+      module: MODULE_NAMES.WEB_REQUEST,
       data: durationMs,
     });
     return isNaN(durationMs) ? null : durationMs;
   }
 
-  Logger.debug("無法從 URL 提取持續時間", { module: "network" });
+  Logger.debug("無法從 URL 提取持續時間", { module: MODULE_NAMES.WEB_REQUEST });
   return null;
 }
 
@@ -129,7 +135,7 @@ export function isLikelyAudioFile(contentType, url) {
       contentType.includes("application/octet-stream")
     ) {
       Logger.debug("根據 content-type 判斷為語音檔案", {
-        module: "network",
+        module: MODULE_NAMES.WEB_REQUEST,
         data: contentType,
       });
       return true;
@@ -144,7 +150,7 @@ export function isLikelyAudioFile(contentType, url) {
       url.includes("audioclip")
     ) {
       Logger.debug("根據 URL 判斷為語音檔案", {
-        module: "network",
+        module: MODULE_NAMES.WEB_REQUEST,
         data: url.substring(0, 100),
       });
       return true;

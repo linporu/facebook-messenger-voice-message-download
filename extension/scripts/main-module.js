@@ -7,6 +7,7 @@
 import { initDomDetector } from "./voice-detector/dom-detector.js";
 import { initContextMenuHandler } from "./voice-detector/context-menu-handler.js";
 import { Logger } from "./utils/logger.js";
+import { MESSAGE_SOURCES, MESSAGE_TYPES, TIME_CONSTANTS } from "./utils/constants.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger('main-module');
@@ -84,7 +85,7 @@ async function tryWebAudioAPI(blob) {
         }
       }
       reject(new Error("Web Audio API 解碼超時"));
-    }, 5000); // 5秒超時
+    }, TIME_CONSTANTS.AUDIO_LOAD_TIMEOUT + 2000); // 音訊載入超時加2秒
 
     try {
       // 創建 AudioContext
@@ -391,7 +392,7 @@ function initialize() {
   // 注意：在頁面上下文中不能直接使用 chrome API，改用 window.postMessage
   window.postMessage(
     {
-      type: "FROM_VOICE_MESSAGE_DOWNLOADER",
+      type: MESSAGE_SOURCES.CONTENT_SCRIPT,
       message: {
         action: "contentScriptInitialized",
         url: window.location.href,
@@ -411,7 +412,7 @@ function initialize() {
     // 處理來自內容腳本的訊息
     if (
       event.data.type &&
-      event.data.type === "FROM_VOICE_MESSAGE_DOWNLOADER_BACKGROUND"
+      event.data.type === MESSAGE_SOURCES.BACKGROUND_SCRIPT
     ) {
       // 處理來自背景腳本的訊息
       const message = event.data.message;
@@ -431,7 +432,7 @@ function initialize() {
       // 使用 postMessage 發送訊息
       window.postMessage(
         {
-          type: "FROM_VOICE_MESSAGE_DOWNLOADER",
+          type: MESSAGE_SOURCES.CONTENT_SCRIPT,
           message: message,
         },
         "*"

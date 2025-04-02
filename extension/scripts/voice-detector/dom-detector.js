@@ -8,19 +8,25 @@ import {
   isVoiceMessagePlayButton,
   getDurationFromSlider,
   getSliderFromPlayButton,
-  VOICE_MESSAGE_SLIDER_ARIA_LABEL,
-  VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL,
+  markAsVoiceMessageElement,
 } from "../utils/dom-utils.js";
-import { markAsVoiceMessageElement } from "../utils/dom-utils.js";
 import { generateVoiceMessageId } from "../utils/id-generator.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
+import {
+  MESSAGE_ACTIONS,
+  MESSAGE_SOURCES,
+  MESSAGE_TYPES,
+  MODULE_NAMES,
+  TIME_CONSTANTS,
+  DOM_CONSTANTS,
+} from "../utils/constants.js";
 
 /**
  * 初始化 DOM 偵測器
  */
 export function initDomDetector() {
-  Logger.info("初始化 DOM 偵測器", { module: "dom-detector" });
+  Logger.info("初始化 DOM 偵測器", { module: MODULE_NAMES.DOM_DETECTOR });
 
   // 立即執行一次偵測
   detectVoiceMessages();
@@ -58,7 +64,7 @@ export function initDomDetector() {
 export function detectVoiceMessages() {
   // 方法 1: 尋找滑桿元素
   const sliders = document.querySelectorAll(
-    `[role="slider"][aria-label="${VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
+    `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
   );
 
   for (const slider of sliders) {
@@ -67,7 +73,7 @@ export function detectVoiceMessages() {
 
   // 方法 2: 尋找播放按鈕
   const playButtons = document.querySelectorAll(
-    `[role="button"][aria-label="${VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
+    `[role="button"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
   );
 
   for (const button of playButtons) {
@@ -87,7 +93,7 @@ export function detectVoiceMessages() {
  */
 function processSliderElement(sliderElement) {
   // 檢查元素是否已經被處理過
-  if (sliderElement.hasAttribute("data-voice-message-id")) {
+  if (sliderElement.hasAttribute(DOM_CONSTANTS.VOICE_MESSAGE_ID_DATA_ATTR)) {
     return;
   }
 
@@ -105,16 +111,35 @@ function processSliderElement(sliderElement) {
     // 將持續時間轉換為毫秒
     const durationMs = secondsToMilliseconds(durationSec);
 
-    // 發送訊息到背景腳本
-    window.sendToBackground({
-      action: "registerVoiceMessageElement",
-      elementId: elementId,
-      durationMs: durationMs,
-    });
+    // 發送訊息到背景腳本，檢查函數是否存在
+    if (typeof window.sendToBackground === 'function') {
+      window.sendToBackground({
+        action: MESSAGE_ACTIONS.REGISTER_ELEMENT,
+        elementId: elementId,
+        durationMs: durationMs,
+      });
+    } else {
+      // 使用替代方法發送訊息
+      window.postMessage(
+        {
+          type: MESSAGE_SOURCES.CONTENT_SCRIPT,
+          message: {
+            action: MESSAGE_ACTIONS.REGISTER_ELEMENT,
+            elementId: elementId,
+            durationMs: durationMs,
+          },
+        },
+        "*"
+      );
+      
+      Logger.warn("window.sendToBackground 不是函數，使用替代方法", {
+        module: MODULE_NAMES.DOM_DETECTOR
+      });
+    }
 
     // 輸出偵測到的語音訊息
     Logger.debug("找到語音訊息", {
-      module: "dom-detector",
+      module: MODULE_NAMES.DOM_DETECTOR,
       data: {
         element: sliderElement,
         durationSec,
