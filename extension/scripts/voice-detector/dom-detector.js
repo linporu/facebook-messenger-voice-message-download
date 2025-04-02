@@ -15,6 +15,7 @@ import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
 import {
   MESSAGE_ACTIONS,
+  MESSAGE_SOURCES,
   MESSAGE_TYPES,
   MODULE_NAMES,
   TIME_CONSTANTS,
@@ -121,7 +122,7 @@ function processSliderElement(sliderElement) {
       // 使用替代方法發送訊息
       window.postMessage(
         {
-          type: MESSAGE_TYPES.FROM_CONTENT,
+          type: MESSAGE_SOURCES.CONTENT_SCRIPT,
           message: {
             action: MESSAGE_ACTIONS.REGISTER_ELEMENT,
             elementId: elementId,

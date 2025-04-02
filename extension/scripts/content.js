@@ -4,7 +4,7 @@
  */
 
 import { Logger } from "./utils/logger.js";
-import { SUPPORTED_SITES, MESSAGE_TYPES, MESSAGE_ACTIONS, TIME_CONSTANTS, MODULE_NAMES } from "./utils/constants.js";
+import { SUPPORTED_SITES, MESSAGE_SOURCES, MESSAGE_TYPES, MESSAGE_ACTIONS, TIME_CONSTANTS, MODULE_NAMES } from "./utils/constants.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.CONTENT_SCRIPT);
@@ -35,7 +35,7 @@ if (!isSupportedSite) {
     // 處理來自主模組的訊息
     if (
       event.data.type &&
-      event.data.type === MESSAGE_TYPES.FROM_CONTENT
+      event.data.type === MESSAGE_SOURCES.CONTENT_SCRIPT
     ) {
       logger.debug("收到主模組訊息，轉發到背景腳本", {
         message: event.data.message,
@@ -105,7 +105,7 @@ if (!isSupportedSite) {
     // 其他訊息轉發到主模組
     window.postMessage(
       {
-        type: MESSAGE_TYPES.FROM_BACKGROUND,
+        type: MESSAGE_SOURCES.BACKGROUND_SCRIPT,
         message: message,
       },
       "*"

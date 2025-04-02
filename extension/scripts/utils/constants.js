@@ -19,9 +19,15 @@ export const SUPPORTED_SITES = {
 // ===========================================
 // 訊息處理相關常數
 // ===========================================
+export const MESSAGE_SOURCES = {
+  CONTENT_SCRIPT: "CONTENT_SCRIPT",
+  BACKGROUND_SCRIPT: "BACKGROUND_SCRIPT",
+};
+
+// 為了向後兼容，保留舊的常數但使用新的值
 export const MESSAGE_TYPES = {
-  FROM_CONTENT: "FROM_VOICE_MESSAGE_DOWNLOADER",
-  FROM_BACKGROUND: "FROM_VOICE_MESSAGE_DOWNLOADER_BACKGROUND",
+  FROM_CONTENT: MESSAGE_SOURCES.CONTENT_SCRIPT,
+  FROM_BACKGROUND: MESSAGE_SOURCES.BACKGROUND_SCRIPT,
 };
 
 export const MESSAGE_ACTIONS = {

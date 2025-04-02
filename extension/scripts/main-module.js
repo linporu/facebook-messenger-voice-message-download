@@ -7,7 +7,7 @@
 import { initDomDetector } from "./voice-detector/dom-detector.js";
 import { initContextMenuHandler } from "./voice-detector/context-menu-handler.js";
 import { Logger } from "./utils/logger.js";
-import { MESSAGE_TYPES, TIME_CONSTANTS } from "./utils/constants.js";
+import { MESSAGE_SOURCES, MESSAGE_TYPES, TIME_CONSTANTS } from "./utils/constants.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger('main-module');
@@ -392,7 +392,7 @@ function initialize() {
   // 注意：在頁面上下文中不能直接使用 chrome API，改用 window.postMessage
   window.postMessage(
     {
-      type: MESSAGE_TYPES.FROM_CONTENT,
+      type: MESSAGE_SOURCES.CONTENT_SCRIPT,
       message: {
         action: "contentScriptInitialized",
         url: window.location.href,
@@ -412,7 +412,7 @@ function initialize() {
     // 處理來自內容腳本的訊息
     if (
       event.data.type &&
-      event.data.type === MESSAGE_TYPES.FROM_BACKGROUND
+      event.data.type === MESSAGE_SOURCES.BACKGROUND_SCRIPT
     ) {
       // 處理來自背景腳本的訊息
       const message = event.data.message;
@@ -432,7 +432,7 @@ function initialize() {
       // 使用 postMessage 發送訊息
       window.postMessage(
         {
-          type: MESSAGE_TYPES.FROM_CONTENT,
+          type: MESSAGE_SOURCES.CONTENT_SCRIPT,
           message: message,
         },
         "*"
