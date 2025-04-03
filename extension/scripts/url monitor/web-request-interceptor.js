@@ -7,7 +7,7 @@ import {
   extractDurationFromContentDisposition,
   extractDurationFromUrl,
   isLikelyAudioFile,
-} from "../voice-detector/extractDurationFunctions.js";
+} from "../audio/extractDurationFunctions.js";
 import { registerDownloadUrl } from "../background/data-store.js";
 import { Logger } from "../utils/logger.js";
 

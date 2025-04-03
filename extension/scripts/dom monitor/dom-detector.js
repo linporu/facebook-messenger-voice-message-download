@@ -9,7 +9,7 @@ import {
   getDurationFromSlider,
   getSliderFromPlayButton,
   markAsVoiceMessageElement,
-} from "../utils/dom-utils.js";
+} from "./dom-utils.js";
 import { generateVoiceMessageId } from "../utils/id-generator.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
@@ -112,7 +112,7 @@ function processSliderElement(sliderElement) {
     const durationMs = secondsToMilliseconds(durationSec);
 
     // 發送訊息到背景腳本，檢查函數是否存在
-    if (typeof window.sendToBackground === 'function') {
+    if (typeof window.sendToBackground === "function") {
       window.sendToBackground({
         action: MESSAGE_ACTIONS.REGISTER_ELEMENT,
         elementId: elementId,
@@ -131,9 +131,9 @@ function processSliderElement(sliderElement) {
         },
         "*"
       );
-      
+
       Logger.warn("window.sendToBackground 不是函數，使用替代方法", {
-        module: MODULE_NAMES.DOM_DETECTOR
+        module: MODULE_NAMES.DOM_DETECTOR,
       });
     }
 
