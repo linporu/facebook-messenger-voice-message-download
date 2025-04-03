@@ -7,7 +7,7 @@ import {
   findVoiceMessageElement,
   getDurationFromSlider,
   getSliderFromPlayButton,
-} from "../utils/dom-utils.js";
+} from "../dom monitor/dom-utils.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
 import { MESSAGE_ACTIONS, MODULE_NAMES } from "../utils/constants.js";

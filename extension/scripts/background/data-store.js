@@ -8,7 +8,7 @@ import {
   generateVoiceMessageId,
   isVoiceMessageId,
 } from "../utils/id-generator.js";
-import { markAsVoiceMessageElement } from "../utils/dom-utils.js";
+import { markAsVoiceMessageElement } from "../dom monitor/dom-utils.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
 

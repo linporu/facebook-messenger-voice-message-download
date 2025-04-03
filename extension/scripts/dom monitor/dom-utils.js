@@ -3,8 +3,8 @@
  * 提供 DOM 操作相關的輔助函數
  */
 
-import { Logger } from "./logger.js";
-import { DOM_CONSTANTS } from "./constants.js";
+import { Logger } from "../utils/logger.js";
+import { DOM_CONSTANTS } from "../utils/constants.js";
 
 /**
  * 檢查元素是否為語音訊息播放按鈕
@@ -18,13 +18,15 @@ export function isVoiceMessagePlayButton(element) {
   // 檢查 aria-label
   if (
     element.getAttribute("role") === "button" &&
-    element.getAttribute("aria-label") === DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL
+    element.getAttribute("aria-label") ===
+      DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL
   ) {
     // 檢查是否包含特定 SVG 路徑
     const svgPath = element.querySelector("path");
     if (
       svgPath &&
-      svgPath.getAttribute("d") === DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH
+      svgPath.getAttribute("d") ===
+        DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH
     ) {
       return true;
     }
@@ -34,7 +36,9 @@ export function isVoiceMessagePlayButton(element) {
     if (svg) {
       const path = svg.querySelector("path");
       return (
-        path && path.getAttribute("d") === DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH
+        path &&
+        path.getAttribute("d") ===
+          DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH
       );
     }
   }
@@ -52,7 +56,8 @@ export function isVoiceMessageSlider(element) {
   return (
     element &&
     element.getAttribute("role") === "slider" &&
-    element.getAttribute("aria-label") === DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL
+    element.getAttribute("aria-label") ===
+      DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL
   );
 }
 

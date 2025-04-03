@@ -7,7 +7,7 @@
 import { initMenuManager } from "./background/menu-manager.js";
 import { initDownloadManager } from "./background/download-manager.js";
 import { initMessageHandler } from "./background/message-handler.js";
-import { initWebRequestInterceptor } from "./background/web-request-interceptor.js";
+import { initWebRequestInterceptor } from "./url monitor/web-request-interceptor.js";
 import { createDataStore, cleanupOldItems } from "./background/data-store.js";
 import { Logger } from "./utils/logger.js";
 import { UI_CONSTANTS, TIME_CONSTANTS, MODULE_NAMES } from "./utils/constants.js";
