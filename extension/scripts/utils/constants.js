@@ -7,12 +7,12 @@
 // Blob 監控相關常數
 // ===========================================
 export const BLOB_MONITOR_CONSTANTS = {
-  THROTTLE_INTERVAL: 500, // 最小處理間隔（毫秒）
+  THROTTLE_INTERVAL: 0, // 最小處理間隔（毫秒）
   PERIODIC_CLEANUP_INTERVAL: 300000, // 每 5 分鐘清空已處理的 URL
   MIN_VALID_DURATION: 500, // 最小有效持續時間（毫秒）
   MAX_VALID_DURATION: 600000, // 最大有效持續時間（毫秒）
   MIN_VALID_AUDIO_SIZE: 50 * 1024, // 音訊的最小合理大小 (50KB)
-  MAX_VALID_AUDIO_SIZE: 5 * 1024 * 1024 // 音訊的最大合理大小 (5MB)
+  MAX_VALID_AUDIO_SIZE: 5 * 1024 * 1024, // 音訊的最大合理大小 (5MB)
 };
 
 // ===========================================
