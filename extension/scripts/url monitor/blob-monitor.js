@@ -5,11 +5,10 @@
 
 import { Logger } from "../utils/logger.js";
 import {
-  MESSAGE_SOURCES,
-  MESSAGE_TYPES,
   MESSAGE_ACTIONS,
-  TIME_CONSTANTS,
   MODULE_NAMES,
+  BLOB_MONITOR_CONSTANTS,
+  DURATION_CATEGORIES,
 } from "../utils/constants.js";
 import {
   calculateAudioDuration,
@@ -18,27 +17,19 @@ import {
 } from "../audio/audio-analyzer.js";
 
 // 創建模組特定的日誌記錄器
-const logger = Logger.createModuleLogger("blob-monitor");
+const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_MONITOR);
 
 // 全局標記，用於識別擴充功能自己創建的 blob URL
 // 使用 WeakMap 避免記憶體洩漏
 // 將 blob 對象映射到布爾值，表示是否為擴充功能創建
-// WeakMap 允許 blob 對象被垃圾回收時自動移除映射關係
-// 這比使用普通的 Map 更安全，因為不會阻止 blob 垃圾回收
-// 也不需要手動清理映射關係
 const selfCreatedBlobs = new WeakMap();
 
 // 節流控制變數
 // 記錄最後一次處理 blob 的時間戳
-// 用於限制短時間內處理 blob 的频率
 let lastProcessedTime = 0;
-// 最小處理間隔（毫秒）
-// 即使有多個 blob 在短時間內創建，也只處理一個
-const THROTTLE_INTERVAL = 500;
 
 // 記錄已處理的 blob URL
 // 避免重複處理相同的 URL
-// 使用 Set 而非 WeakSet，因為需要存儲字符串 URL
 const processedBlobUrls = new Set();
 
 // 清理記錄的已處理 URL
@@ -48,7 +39,7 @@ function setupPeriodicCleanup() {
     // 清空已處理的 URL 集合
     processedBlobUrls.clear();
     logger.debug("已清空處理過的 blob URL 記錄");
-  }, 300000); // 每 5 分鐘清空一次
+  }, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
 }
 
 /**
@@ -72,7 +63,6 @@ async function getDurationFromBlob(blob) {
  * 設置 Blob URL 監控
  * 攔截 URL.createObjectURL 方法來捕獲 blob URL 的創建
  * 計算音訊檔案的持續時間並存儲到 voiceMessagesStore
- * 已優化：增加安全標記、節流控制、更精確的音訊偵測
  */
 export function setupBlobUrlMonitor() {
   logger.info("設置 Blob URL 監控");
@@ -94,7 +84,7 @@ export function setupBlobUrlMonitor() {
     try {
       // 節流控制：檢查是否超過最小處理間隔
       const now = Date.now();
-      if (now - lastProcessedTime < THROTTLE_INTERVAL) {
+      if (now - lastProcessedTime < BLOB_MONITOR_CONSTANTS.THROTTLE_INTERVAL) {
         // 如果超過限制頻率，則跳過處理
         return blobUrl;
       }
@@ -153,8 +143,11 @@ export function setupBlobUrlMonitor() {
       // 計算音訊持續時間
       getDurationFromBlob(blob)
         .then((durationMs) => {
-          // 驗證持續時間是否合理（大於 0.5 秒且小於 10 分鐘）
-          if (durationMs < 500 || durationMs > 600000) {
+          // 驗證持續時間是否合理（大於最小值且小於最大值）
+          if (
+            durationMs < BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION ||
+            durationMs > BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION
+          ) {
             logger.debug("偵測到的持續時間不在合理範圍內，跳過", {
               durationMs: durationMs,
             });
@@ -163,11 +156,11 @@ export function setupBlobUrlMonitor() {
 
           // 判斷持續時間範圍
           let durationCategory = "未知";
-          if (durationMs < 3000) {
+          if (durationMs < DURATION_CATEGORIES.VERY_SHORT) {
             durationCategory = "極短 (<3秒)";
-          } else if (durationMs < 10000) {
+          } else if (durationMs < DURATION_CATEGORIES.SHORT) {
             durationCategory = "短 (3-10秒)";
-          } else if (durationMs < 60000) {
+          } else if (durationMs < DURATION_CATEGORIES.MEDIUM) {
             durationCategory = "中 (10秒-1分鐘)";
           } else {
             durationCategory = "長 (>1分鐘)";
@@ -184,7 +177,7 @@ export function setupBlobUrlMonitor() {
 
           // 將 Blob URL 與持續時間一起存儲到 voiceMessagesStore，但不自動下載
           window.sendToBackground({
-            action: "registerBlobUrl",
+            action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
             blobUrl: blobUrl,
             blobType: blob.type,
             blobSize: blob.size,
@@ -200,7 +193,6 @@ export function setupBlobUrlMonitor() {
         })
         .catch((error) => {
           // 錯誤處理：只在偵測到可能的音訊檔案但無法計算持續時間時記錄
-          // 減少輸出錯誤日誌的頻率
           logger.warn("計算 Blob 持續時間失敗，可能不是音訊檔案");
 
           logger.debug("Blob 錯誤詳情", {
@@ -215,11 +207,11 @@ export function setupBlobUrlMonitor() {
           // 只在高可能是音訊且大小合適的情況下才註冊
           if (
             blob.type.includes("audio/") &&
-            blob.size > 50 * 1024 &&
-            blob.size < 5 * 1024 * 1024
+            blob.size > BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE &&
+            blob.size < BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE
           ) {
             window.sendToBackground({
-              action: "blobUrlDetected",
+              action: MESSAGE_ACTIONS.BLOB_DETECTED,
               blobUrl: blobUrl,
               blobType: blob.type,
               blobSize: blob.size,
