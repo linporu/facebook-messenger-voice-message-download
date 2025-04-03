@@ -13,9 +13,9 @@ import {
   MODULE_NAMES,
 } from "./utils/constants.js";
 import {
-  calculateAudioDuration,
-  extractBlobContent,
-} from "./audio/audio-analyzer.js";
+  handleExtractBlobRequest,
+  handleCalculateDurationRequest,
+} from "./url monitor/blob-monitor.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.CONTENT_SCRIPT);
@@ -66,85 +66,12 @@ if (!isSupportedSite) {
 
     // 特別處理 extractBlobContent 訊息
     if (message.action === MESSAGE_ACTIONS.EXTRACT_BLOB) {
-      logger.debug("收到提取 blob 內容要求", {
-        blobUrl: message.blobUrl,
-        blobType: message.blobType,
-        requestId: message.requestId,
-      });
-
-      // 提取 blob 內容 - 使用新的音檔分析模組
-      extractBlobContent(message.blobUrl)
-        .then((result) => {
-          logger.debug("提取 blob 內容成功，發送回背景腳本");
-
-          // 構建結果並發送到背景腳本
-          chrome.runtime.sendMessage(
-            {
-              action: MESSAGE_ACTIONS.DOWNLOAD_BLOB,
-              blobType: result.blobType,
-              base64data: result.base64data,
-              requestId: message.requestId,
-              timestamp: new Date().toISOString(),
-            },
-            (response) => {
-              logger.debug("背景腳本回應下載要求", { response });
-            }
-          );
-
-          sendResponse({
-            success: true,
-            message: "已發送 blob 內容到背景腳本進行下載",
-          });
-        })
-        .catch((error) => {
-          logger.error("提取 blob 內容失敗", { error });
-          sendResponse({ success: false, error: error.message });
-        });
-
-      return true; // 保持連接開啟，以便異步回應
+      return handleExtractBlobRequest(message, sendResponse);
     }
 
     // 處理 calculateBlobDuration 訊息
     if (message.action === MESSAGE_ACTIONS.CALCULATE_DURATION) {
-      logger.debug("收到計算 blob 持續時間要求", {
-        blobUrl: message.blobUrl,
-        blobType: message.blobType,
-        requestId: message.requestId,
-      });
-
-      // 計算 blob 持續時間 - 使用新的音檔分析模組
-      calculateAudioDuration(message.blobUrl, message.blobType)
-        .then((durationMs) => {
-          logger.debug("計算 blob 持續時間成功，發送回背景腳本");
-
-          // 發送計算結果到背景腳本
-          chrome.runtime.sendMessage(
-            {
-              action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
-              blobUrl: message.blobUrl,
-              blobType: message.blobType,
-              blobSize: null, // 我們沒有 blob 大小資訊，後續可以改進
-              durationMs: durationMs,
-              timestamp: new Date().toISOString(),
-              requestId: message.requestId,
-            },
-            (response) => {
-              logger.debug("背景腳本回應註冊 Blob URL 要求", { response });
-            }
-          );
-
-          sendResponse({
-            success: true,
-            message: "已計算 blob 持續時間並註冊到 voiceMessagesStore",
-            durationMs: durationMs,
-          });
-        })
-        .catch((error) => {
-          logger.error("計算 blob 持續時間失敗", { error });
-          sendResponse({ success: false, error: error.message });
-        });
-
-      return true; // 保持連接開啟，以便異步回應
+      return handleCalculateDurationRequest(message, sendResponse);
     }
 
     // 其他訊息轉發到主模組
