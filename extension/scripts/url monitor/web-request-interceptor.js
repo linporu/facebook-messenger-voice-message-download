@@ -8,7 +8,7 @@ import {
   extractDurationFromUrl,
   isLikelyAudioFile,
 } from "../voice-detector/extractDurationFunctions.js";
-import { registerDownloadUrl } from "./data-store.js";
+import { registerDownloadUrl } from "../background/data-store.js";
 import { Logger } from "../utils/logger.js";
 
 // 創建模組特定的日誌記錄器
