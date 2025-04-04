@@ -192,47 +192,18 @@ export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
         tabId: sender.tab?.id,
       });
 
-      // 如果已有持續時間資訊，直接註冊到 voiceMessages
-      if (durationMs) {
-        logger.debug("Blob URL 已有持續時間資訊", { durationMs });
+      // 使用 registerDownloadUrl 函數將 Blob URL 註冊到 voiceMessages
+      const id = voiceMessages.registerDownloadUrl(
+        voiceMessages,
+        durationMs,
+        blobUrl,
+        null // 沒有 lastModified 資訊
+      );
 
-        // 使用 registerDownloadUrl 函數將 Blob URL 註冊到 voiceMessages
-        const id = voiceMessages.registerDownloadUrl(
-          voiceMessages,
-          durationMs,
-          blobUrl,
-          null // 沒有 lastModified 資訊
-        );
-
-        logger.debug("成功註冊 Blob URL", {
-          id,
-          durationMs,
-        });
-      } else {
-        // 沒有持續時間資訊，需要計算
-        logger.debug("Blob URL 沒有持續時間資訊，需要計算");
-
-        // 發送訊息到內容腳本，要求計算持續時間
-        chrome.tabs.sendMessage(
-          sender.tab.id,
-          {
-            action: "calculateBlobDuration",
-            blobUrl: blobUrl,
-            blobType: blobType,
-            requestId: Date.now().toString(),
-          },
-          (response) => {
-            if (chrome.runtime.lastError) {
-              logger.error("發送計算 blob 持續時間要求時發生錯誤", {
-                error: chrome.runtime.lastError,
-              });
-              return;
-            }
-
-            logger.debug("已發送計算 blob 持續時間要求");
-          }
-        );
-      }
+      logger.debug("成功註冊 Blob URL", {
+        id,
+        durationMs,
+      });
 
       logger.info(
         "注意：Blob URL 已存儲，但不會自動下載。用戶需要右鍵點擊才會下載。"
