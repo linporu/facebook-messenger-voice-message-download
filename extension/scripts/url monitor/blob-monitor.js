@@ -139,26 +139,22 @@ const LogUtils = {
  * 檢查是否應該處理這個 blob
  */
 function shouldProcessBlob(blob, blobUrl) {
-  // 擴充功能自己創建的 blob
-  if (BlobMonitorState.isSelfCreated(blob)) {
-    return false;
-  }
-
-  // 節流控制
-  if (BlobMonitorState.shouldThrottle()) {
-    return false;
-  }
-
-  // 已處理檢查
-  if (BlobMonitorState.isUrlProcessed(blobUrl)) {
-    return false;
-  }
-
   // 基本檢查 - blob 必須存在且有類型
   if (!blob || !blob.type) {
     return false;
   }
-
+  // 已處理檢查
+  if (BlobMonitorState.isUrlProcessed(blobUrl)) {
+    return false;
+  }
+  // 擴充功能自己創建的 blob
+  if (BlobMonitorState.isSelfCreated(blob)) {
+    return false;
+  }
+  // 節流控制
+  if (BlobMonitorState.shouldThrottle()) {
+    return false;
+  }
   return true;
 }
 
@@ -336,23 +332,6 @@ function setupPeriodicCleanup() {
   setInterval(() => {
     BlobMonitorState.clearProcessedUrls();
   }, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
-}
-
-/**
- * 從 Blob 中提取音訊持續時間
- * 使用音檔分析模組提取持續時間
- *
- * @param {Blob} blob - 音訊 Blob 對象
- * @returns {Promise<number>} - 返回音訊持續時間（毫秒）的 Promise
- */
-async function getDurationFromBlob(blob) {
-  try {
-    logger.debug("開始從 Blob 提取音訊持續時間");
-    return await calculateAudioDuration(blob);
-  } catch (error) {
-    logger.error("提取持續時間失敗", { error });
-    throw error;
-  }
 }
 
 /**
