@@ -51,7 +51,6 @@ export const MESSAGE_ACTIONS = {
   BLOB_DETECTED: "blobUrlDetected",
   UPDATE_ELEMENT: "updateVoiceMessageElement",
   EXTRACT_BLOB: "extractBlobContent",
-  CALCULATE_DURATION: "calculateBlobDuration",
 };
 
 // ===========================================

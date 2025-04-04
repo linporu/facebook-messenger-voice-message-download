@@ -231,57 +231,6 @@ export async function handleExtractBlobRequest(message, sendResponse) {
 }
 
 /**
- * 處理計算 blob 持續時間的請求
- *
- * @param {Object} message - 包含 blobUrl 的消息對象
- * @param {Function} sendResponse - 回應函數
- * @returns {boolean} - 標示是否保持連接開啟
- */
-export async function handleCalculateDurationRequest(message, sendResponse) {
-  logger.debug("收到計算 blob 持續時間要求", {
-    blobUrl: message.blobUrl,
-    blobType: message.blobType,
-    requestId: message.requestId,
-  });
-
-  try {
-    // 計算 blob 持續時間
-    const durationMs = await calculateAudioDuration(
-      message.blobUrl,
-      message.blobType
-    );
-    logger.debug("計算 blob 持續時間成功，發送回背景腳本");
-
-    // 發送計算結果到背景腳本
-    chrome.runtime.sendMessage(
-      {
-        action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
-        blobUrl: message.blobUrl,
-        blobType: message.blobType,
-        blobSize: null, // 我們沒有 blob 大小資訊，後續可以改進
-        durationMs: durationMs,
-        timestamp: new Date().toISOString(),
-        requestId: message.requestId,
-      },
-      (response) => {
-        logger.debug("背景腳本回應註冊 Blob URL 要求", { response });
-      }
-    );
-
-    sendResponse({
-      success: true,
-      message: "已計算 blob 持續時間並註冊到 voiceMessagesStore",
-      durationMs: durationMs,
-    });
-  } catch (error) {
-    logger.error("計算 blob 持續時間失敗", { error });
-    sendResponse({ success: false, error: error.message });
-  }
-
-  return true; // 保持連接開啟，以便異步回應
-}
-
-/**
  * 初始化 Blob 監控模組
  */
 export function initBlobMonitor() {
@@ -296,7 +245,6 @@ export default {
   initBlobMonitor,
   setupBlobUrlMonitor,
   handleExtractBlobRequest,
-  handleCalculateDurationRequest,
   // 導出供測試和偵錯使用的內部狀態
   BlobMonitorState,
 };
