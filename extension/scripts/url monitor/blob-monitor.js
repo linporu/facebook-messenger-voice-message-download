@@ -144,24 +144,12 @@ async function processBlob(blob, blobUrl) {
 
   try {
     // 計算音訊持續時間 - 使用 await 等待 Promise 解析
-    const durationMs = await processAudioBlobDuration(blob);
+    const durationMs = await calculateAudioDuration(blob);
 
     // 將 Blob URL 與持續時間一起註冊到背景腳本
     registerBlobWithBackend(blob, blobUrl, durationMs);
   } catch (error) {
     logger.error("處理音訊 blob 時發生錯誤", { error });
-  }
-}
-
-/**
- * 處理音訊 blob 的持續時間計算
- */
-async function processAudioBlobDuration(blob) {
-  try {
-    const durationMs = await calculateAudioDuration(blob);
-    return durationMs;
-  } catch (error) {
-    logger.error("計算 Blob 持續時間失敗，可能不是音訊檔案", { error });
   }
 }
 
