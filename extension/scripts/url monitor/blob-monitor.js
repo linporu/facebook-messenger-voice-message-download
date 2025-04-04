@@ -102,23 +102,6 @@ const LogUtils = {
   },
 
   /**
-   * 記錄 Blob 持續時間資訊
-   */
-  logDurationInfo(blobUrl, durationMs, durationCategory, blob) {
-    const urlFeatures = blobUrl.substring(0, 50);
-    const timestamp = new Date().toISOString();
-
-    logger.info("Blob 持續時間資訊", {
-      blobUrl: urlFeatures,
-      durationMs: durationMs,
-      durationCategory: durationCategory,
-      blobType: blob.type,
-      blobSizeKB: (blob.size / 1024).toFixed(2),
-      timestamp: timestamp,
-    });
-  },
-
-  /**
    * 記錄 Blob 錯誤詳情
    */
   logBlobError(blobUrl, blob, error) {
@@ -134,155 +117,6 @@ const LogUtils = {
     });
   },
 };
-
-/**
- * 檢查是否應該處理這個 blob
- */
-function shouldProcessBlob(blob, blobUrl) {
-  // 基本檢查 - blob 必須存在且有類型
-  if (!blob || !blob.type) {
-    return false;
-  }
-  // 已處理檢查
-  if (BlobMonitorState.isUrlProcessed(blobUrl)) {
-    return false;
-  }
-  // 擴充功能自己創建的 blob
-  if (BlobMonitorState.isSelfCreated(blob)) {
-    return false;
-  }
-  // 節流控制
-  if (BlobMonitorState.shouldThrottle()) {
-    return false;
-  }
-  return true;
-}
-
-/**
- * 計算持續時間分類
- */
-function calculateDurationCategory(durationMs) {
-  if (durationMs < DURATION_CATEGORIES.VERY_SHORT) {
-    return "極短 (<3秒)";
-  } else if (durationMs < DURATION_CATEGORIES.SHORT) {
-    return "短 (3-10秒)";
-  } else if (durationMs < DURATION_CATEGORIES.MEDIUM) {
-    return "中 (10秒-1分鐘)";
-  } else {
-    return "長 (>1分鐘)";
-  }
-}
-
-/**
- * 處理音訊 blob 的持續時間計算
- */
-async function processAudioBlobDuration(blob, blobUrl, evaluation) {
-  try {
-    const durationMs = await calculateAudioDuration(blob);
-
-    // 驗證持續時間是否合理
-    if (
-      durationMs < BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION ||
-      durationMs > BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION
-    ) {
-      logger.debug("偵測到的持續時間不在合理範圍內，跳過", {
-        durationMs: durationMs,
-      });
-      return;
-    }
-
-    // 計算持續時間分類
-    const durationCategory = calculateDurationCategory(durationMs);
-
-    // 記錄持續時間資訊
-    LogUtils.logDurationInfo(blobUrl, durationMs, durationCategory, blob);
-
-    // 將 Blob URL 與持續時間一起註冊到背景腳本
-    registerBlobWithBackend(
-      blobUrl,
-      blob,
-      durationMs,
-      durationCategory,
-      evaluation
-    );
-
-    logger.info("Blob URL 已註冊，等待用戶右鍵點擊下載", {
-      durationMs: durationMs,
-    });
-  } catch (error) {
-    handleDurationCalculationError(blobUrl, blob, error, evaluation);
-  }
-}
-
-/**
- * 向背景腳本註冊 Blob
- */
-function registerBlobWithBackend(
-  blobUrl,
-  blob,
-  durationMs,
-  durationCategory,
-  evaluation
-) {
-  window.sendToBackground({
-    action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
-    blobUrl: blobUrl,
-    blobType: blob.type,
-    blobSize: blob.size,
-    durationMs: durationMs,
-    durationCategory: durationCategory,
-    sizeCategory: evaluation.sizeCategory,
-    timestamp: new Date().toISOString(),
-  });
-}
-
-/**
- * 處理計算持續時間時發生的錯誤
- */
-function handleDurationCalculationError(blobUrl, blob, error, evaluation) {
-  logger.warn("計算 Blob 持續時間失敗，可能不是音訊檔案");
-  LogUtils.logBlobError(blobUrl, blob, error);
-
-  // 只在高可能是音訊且大小合適的情況下才註冊
-  if (
-    blob.type.includes("audio/") &&
-    blob.size > BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE &&
-    blob.size < BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE
-  ) {
-    window.sendToBackground({
-      action: MESSAGE_ACTIONS.BLOB_DETECTED,
-      blobUrl: blobUrl,
-      blobType: blob.type,
-      blobSize: blob.size,
-      sizeCategory: evaluation.sizeCategory,
-      timestamp: new Date().toISOString(),
-    });
-
-    logger.info("雖無法計算持續時間，但仍註冊了可能的音訊 Blob URL");
-  }
-}
-
-/**
- * 處理潛在的音訊 blob
- */
-function processBlob(blob, blobUrl) {
-  // 更新狀態
-  BlobMonitorState.markUrlAsProcessed(blobUrl);
-
-  // 評估 blob 是否可能是音訊
-  const evaluation = evaluateAudioLikelihood(blob);
-
-  // 記錄詳細資訊
-  LogUtils.logBlobDetails(blob, blobUrl, evaluation);
-
-  // 如果不可能是音訊，提前返回
-  if (!evaluation.isLikelyAudio) {
-    return;
-  }
-
-  // 計算音訊持續時間並處理
-  processAudioBlobDuration(blob, blobUrl, evaluation);
-}
 
 /**
  * 設置 Blob URL 監控
@@ -322,6 +156,95 @@ export function setupBlobUrlMonitor() {
   };
 
   logger.info("Blob URL 監控已設置，已優化資源使用和穩定性");
+}
+
+/**
+ * 檢查是否應該處理這個 blob
+ */
+function shouldProcessBlob(blob, blobUrl) {
+  // 基本檢查 - blob 必須存在且有類型
+  if (!blob || !blob.type) {
+    return false;
+  }
+  // 已處理檢查
+  if (BlobMonitorState.isUrlProcessed(blobUrl)) {
+    return false;
+  }
+  // 擴充功能自己創建的 blob
+  if (BlobMonitorState.isSelfCreated(blob)) {
+    return false;
+  }
+  // 節流控制
+  if (BlobMonitorState.shouldThrottle()) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * 處理音訊 blob 的持續時間計算
+ */
+async function processAudioBlobDuration(blob, blobUrl, evaluation) {
+  try {
+    const durationMs = await calculateAudioDuration(blob);
+
+    // 驗證持續時間是否合理
+    if (
+      durationMs < BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION ||
+      durationMs > BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION
+    ) {
+      logger.debug("偵測到的持續時間不在合理範圍內，跳過", {
+        durationMs: durationMs,
+      });
+      return;
+    }
+
+    // 將 Blob URL 與持續時間一起註冊到背景腳本
+    registerBlobWithBackend(blobUrl, blob, durationMs, evaluation);
+
+    logger.info("Blob URL 已註冊，等待用戶右鍵點擊下載", {
+      durationMs: durationMs,
+    });
+  } catch (error) {
+    logger.error("計算 Blob 持續時間失敗，可能不是音訊檔案", { error });
+  }
+}
+
+/**
+ * 向背景腳本註冊 Blob
+ */
+function registerBlobWithBackend(blobUrl, blob, durationMs, evaluation) {
+  window.sendToBackground({
+    action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
+    blobUrl: blobUrl,
+    blobType: blob.type,
+    blobSize: blob.size,
+    durationMs: durationMs,
+    evaluation: evaluation,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+/**
+ * 處理潛在的音訊 blob
+ */
+function processBlob(blob, blobUrl) {
+  // 更新狀態
+  BlobMonitorState.markUrlAsProcessed(blobUrl);
+
+  // 評估 blob 是否可能是音訊
+  const evaluation = evaluateAudioLikelihood(blob);
+
+  // 記錄詳細資訊
+  LogUtils.logBlobDetails(blob, blobUrl, evaluation);
+
+  // 如果不可能是音訊，提前返回
+  if (!evaluation.isLikelyAudio) {
+    return;
+  }
+
+  // 計算音訊持續時間並處理
+  processAudioBlobDuration(blob, blobUrl, evaluation);
 }
 
 /**

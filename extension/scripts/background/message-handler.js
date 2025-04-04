@@ -397,7 +397,6 @@ function handleRegisterBlobUrl(message, sender, sendResponse) {
     blobType,
     blobSize,
     timestamp,
-    durationCategory,
     sizeCategory,
   } = message;
   const blobSizeKB = (blobSize / 1024).toFixed(2);
@@ -411,19 +410,6 @@ function handleRegisterBlobUrl(message, sender, sendResponse) {
     timestamp,
   });
 
-  // 判斷持續時間範圍（如果沒有提供，自行計算）
-  let durCategory = durationCategory || "未知";
-  if (!durationCategory && durationMs) {
-    if (durationMs < 3000) {
-      durCategory = "極短 (<3秒)";
-    } else if (durationMs < 10000) {
-      durCategory = "短 (3-10秒)";
-    } else if (durationMs < 60000) {
-      durCategory = "中 (10秒-1分鐘)";
-    } else {
-      durCategory = "長 (>1分鐘)";
-    }
-  }
 
   // 判斷大小範圍（如果沒有提供，自行計算）
   let sizeCtg = sizeCategory || "未知";
@@ -495,7 +481,6 @@ function handleRegisterBlobUrl(message, sender, sendResponse) {
   logger.debug("詳細的 Blob URL 註冊資訊", {
     blobUrl: urlFeatures,
     durationMs,
-    durationCategory: durCategory,
     blobType,
     blobSizeBytes: blobSize,
     blobSizeKB,
