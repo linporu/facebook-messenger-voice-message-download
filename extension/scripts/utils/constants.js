@@ -50,7 +50,6 @@ export const MESSAGE_ACTIONS = {
   REGISTER_BLOB_URL: "registerBlobUrl",
   BLOB_DETECTED: "blobUrlDetected",
   UPDATE_ELEMENT: "updateVoiceMessageElement",
-  EXTRACT_BLOB: "extractBlobContent",
 };
 
 // ===========================================
@@ -77,35 +76,6 @@ export const TIME_CONSTANTS = {
 };
 
 export const MATCHING_TOLERANCE = 5; // 毫秒
-
-// ===========================================
-// 分類閾值常數
-// ===========================================
-export const DURATION_CATEGORIES = {
-  VERY_SHORT: 3000, // 3 秒
-  SHORT: 10000, // 10 秒
-  MEDIUM: 60000, // 1 分鐘
-  LONG: Infinity,
-};
-
-export const SIZE_CATEGORIES = {
-  VERY_SMALL: 10 * 1024, // 10 KB
-  SMALL: 100 * 1024, // 100 KB
-  MEDIUM: 1024 * 1024, // 1 MB
-  LARGE: 10 * 1024 * 1024, // 10 MB
-  VERY_LARGE: Infinity,
-};
-
-export const CONFIDENCE_THRESHOLDS = {
-  MINIMUM: 50,
-  MIME_TYPE_AUDIO: 30,
-  MIME_TYPE_VIDEO: 20,
-  DURATION_MATCH: 30,
-  SIZE_MATCH: 20,
-  DURATION_TOO_LONG: -10,
-  SIZE_TOO_SMALL: -15,
-  SIZE_TOO_LARGE: -15,
-};
 
 // ===========================================
 // UI 相關常數
