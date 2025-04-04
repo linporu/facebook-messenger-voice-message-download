@@ -10,6 +10,7 @@ import {
 
 import { createDataStore } from "./data-store.js";
 import Logger from "../utils/logger.js";
+import { MESSAGE_ACTIONS, MESSAGE_SOURCES } from "../utils/constants.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger("MESSAGE-HANDLER");
@@ -43,23 +44,23 @@ export function initMessageHandler(voiceMessages) {
     logger.debug("收到訊息", { message });
     logger.debug("發送者資訊", { sender });
 
-    if (message.action === "rightClickOnVoiceMessage") {
+    if (message.action === MESSAGE_ACTIONS.RIGHT_CLICK) {
       logger.debug("處理右鍵點擊訊息");
       handleRightClickMessage(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
-    } else if (message.action === "registerVoiceMessageElement") {
+    } else if (message.action === MESSAGE_ACTIONS.REGISTER_ELEMENT) {
       logger.debug("處理語音訊息元素註冊訊息");
       handleRegisterElementMessage(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
-    } else if (message.action === "downloadBlobContent") {
+    } else if (message.action === MESSAGE_ACTIONS.DOWNLOAD_BLOB) {
       logger.debug("處理 blob 內容下載訊息");
       handleDownloadBlobContent(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
-    } else if (message.action === "registerBlobUrl") {
+    } else if (message.action === MESSAGE_ACTIONS.REGISTER_BLOB_URL) {
       logger.debug("處理 Blob URL 註冊訊息");
       handleRegisterBlobUrl(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
-    } else if (message.action === "blobUrlDetected") {
+    } else if (message.action === MESSAGE_ACTIONS.BLOB_DETECTED) {
       logger.debug("處理 Blob URL 偵測訊息");
       handleBlobUrlDetected(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
@@ -391,15 +392,7 @@ function handleRegisterElementMessage(message, sender, sendResponse) {
  */
 function handleRegisterBlobUrl(message, sender, sendResponse) {
   // 取得基本資訊
-  const {
-    blobUrl,
-    durationMs,
-    blobType,
-    blobSize,
-    timestamp,
-    sizeCategory,
-  } = message;
-  const blobSizeKB = (blobSize / 1024).toFixed(2);
+  const { blobUrl, blobType, blobSize, durationMs, timestamp } = message;
   const urlFeatures = blobUrl ? blobUrl.substring(0, 30) + "..." : null;
 
   logger.debug("處理 Blob URL 註冊訊息", {
@@ -408,89 +401,6 @@ function handleRegisterBlobUrl(message, sender, sendResponse) {
     blobType,
     blobSize,
     timestamp,
-  });
-
-
-  // 判斷大小範圍（如果沒有提供，自行計算）
-  let sizeCtg = sizeCategory || "未知";
-  if (!sizeCategory && blobSize) {
-    if (blobSize < 10 * 1024) {
-      sizeCtg = "極小 (<10KB)";
-    } else if (blobSize < 100 * 1024) {
-      sizeCtg = "小 (10KB-100KB)";
-    } else if (blobSize < 1024 * 1024) {
-      sizeCtg = "中 (100KB-1MB)";
-    } else if (blobSize < 10 * 1024 * 1024) {
-      sizeCtg = "大 (1MB-10MB)";
-    } else {
-      sizeCtg = "極大 (>10MB)";
-    }
-  }
-
-  // 評估是否可能是語音訊息
-  let isLikelyVoiceMessage = false;
-  let confidenceScore = 0;
-  let confidenceReason = [];
-
-  // 根據 MIME 類型評分
-  if (blobType && blobType.includes("audio/")) {
-    confidenceScore += 30;
-    confidenceReason.push("音訊 MIME 類型");
-  } else if (
-    blobType &&
-    (blobType.includes("video/mp4") || blobType.includes("video/mpeg"))
-  ) {
-    confidenceScore += 20;
-    confidenceReason.push("MP4 容器格式");
-  }
-
-  // 根據持續時間評分
-  if (durationMs) {
-    if (durationMs >= 1000 && durationMs <= 300000) {
-      // 1秒到 5分鐘
-      confidenceScore += 30;
-      confidenceReason.push("合理的語音訊息持續時間");
-    } else if (durationMs > 300000) {
-      confidenceScore -= 10;
-      confidenceReason.push("持續時間過長");
-    }
-  }
-
-  // 根據檔案大小評分
-  if (blobSize) {
-    // 典型的語音訊息大小範圍
-    if (blobSize >= 20 * 1024 && blobSize <= 2 * 1024 * 1024) {
-      // 20KB 到 2MB
-      confidenceScore += 20;
-      confidenceReason.push("合理的語音訊息大小");
-    } else if (blobSize < 5 * 1024) {
-      confidenceScore -= 15;
-      confidenceReason.push("檔案太小");
-    } else if (blobSize > 10 * 1024 * 1024) {
-      confidenceScore -= 15;
-      confidenceReason.push("檔案太大");
-    }
-  }
-
-  // 判斷最終信心度
-  if (confidenceScore >= 50) {
-    isLikelyVoiceMessage = true;
-  }
-
-  // 輸出詳細診斷資訊
-  logger.debug("詳細的 Blob URL 註冊資訊", {
-    blobUrl: urlFeatures,
-    durationMs,
-    blobType,
-    blobSizeBytes: blobSize,
-    blobSizeKB,
-    sizeCategory: sizeCtg,
-    isLikelyVoiceMessage,
-    confidenceScore,
-    confidenceFactors: confidenceReason,
-    pageUrl: sender.tab ? sender.tab.url : "未知",
-    tabId: sender.tab ? sender.tab.id : "未知",
-    timestamp: new Date().toISOString(),
   });
 
   // 確保我們有 voiceMessagesStore

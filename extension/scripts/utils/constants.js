@@ -11,8 +11,9 @@ export const BLOB_MONITOR_CONSTANTS = {
   PERIODIC_CLEANUP_INTERVAL: 300000, // 每 5 分鐘清空已處理的 URL
   MIN_VALID_DURATION: 500, // 最小有效持續時間（毫秒）
   MAX_VALID_DURATION: 1200000, // 最大有效持續時間（毫秒）
-  MIN_VALID_AUDIO_SIZE: 50 * 1024, // 音訊的最小合理大小 (50KB)
-  MAX_VALID_AUDIO_SIZE: 5 * 1024 * 1024, // 音訊的最大合理大小 (5MB)
+  MIN_VALID_AUDIO_SIZE: 20 * 1024, // 音訊的最小合理大小 (20KB)
+  MAX_VALID_AUDIO_SIZE: 200 * 1024 * 1024, // 音訊的最大合理大小 (200MB)
+  POSSIBLE_AUDIO_TYPES: ["audio", "video/mp4", "mp4", "mp3", "mpeg"], // 可能為音訊的檔案類型
 };
 
 // ===========================================

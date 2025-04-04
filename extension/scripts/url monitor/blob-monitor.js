@@ -8,11 +8,10 @@ import {
   MESSAGE_ACTIONS,
   MODULE_NAMES,
   BLOB_MONITOR_CONSTANTS,
-  DURATION_CATEGORIES,
 } from "../utils/constants.js";
 import {
   calculateAudioDuration,
-  evaluateAudioLikelihood,
+  isLikelyVoiceMessageBlob,
   extractBlobContent,
 } from "../audio/audio-analyzer.js";
 
@@ -131,41 +130,36 @@ function shouldProcessBlob(blob, blobUrl) {
 /**
  * 處理潛在的音訊 blob
  */
-function processBlob(blob, blobUrl) {
+async function processBlob(blob, blobUrl) {
   // 更新狀態
   BlobMonitorState.markUrlAsProcessed(blobUrl);
 
-  // 評估 blob 是否可能是音訊
-  const evaluation = evaluateAudioLikelihood(blob);
+  // 評估 blob 是否可能是語音訊息
+  const isLikelyVoiceMessage = isLikelyVoiceMessageBlob(blob);
 
-  if (!evaluation.isLikelyAudio) {
-    // 如果不可能是音訊，提前返回
+  if (!isLikelyVoiceMessage) {
+    // 如果不可能是語音訊息，提前返回
     return;
   }
 
-  // 計算音訊持續時間並處理
-  processAudioBlobDuration(blob, blobUrl, evaluation);
+  try {
+    // 計算音訊持續時間 - 使用 await 等待 Promise 解析
+    const durationMs = await processAudioBlobDuration(blob);
+
+    // 將 Blob URL 與持續時間一起註冊到背景腳本
+    registerBlobWithBackend(blob, blobUrl, durationMs);
+  } catch (error) {
+    logger.error("處理音訊 blob 時發生錯誤", { error });
+  }
 }
 
 /**
  * 處理音訊 blob 的持續時間計算
  */
-async function processAudioBlobDuration(blob, blobUrl, evaluation) {
+async function processAudioBlobDuration(blob) {
   try {
     const durationMs = await calculateAudioDuration(blob);
-
-    // 驗證持續時間是否合理
-    if (
-      durationMs < BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION ||
-      durationMs > BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION
-    ) {
-      logger.debug("偵測到的持續時間不在合理範圍內，跳過", {
-        durationMs: durationMs,
-      });
-      return;
-    }
-    // 將 Blob URL 與持續時間一起註冊到背景腳本
-    registerBlobWithBackend(blobUrl, blob, durationMs, evaluation);
+    return durationMs;
   } catch (error) {
     logger.error("計算 Blob 持續時間失敗，可能不是音訊檔案", { error });
   }
@@ -174,19 +168,18 @@ async function processAudioBlobDuration(blob, blobUrl, evaluation) {
 /**
  * 向背景腳本註冊 Blob
  */
-function registerBlobWithBackend(blobUrl, blob, durationMs, evaluation) {
+function registerBlobWithBackend(blob, blobUrl, durationMs) {
   window.sendToBackground({
     action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
     blobUrl: blobUrl,
     blobType: blob.type,
     blobSize: blob.size,
     durationMs: durationMs,
-    evaluation: evaluation,
     timestamp: new Date().toISOString(),
   });
 
   // 記錄詳細資訊
-  logger.info("向背景腳本發送 blob 詳細資訊", {
+  logger.info("向背景腳本發送 blob url 註冊資訊", {
     blobUrl: blobUrl.substring(0, 50),
     blobType: blob.type,
     blobSizeBytes: blob.size,
