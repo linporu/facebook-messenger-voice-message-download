@@ -97,17 +97,12 @@ export function setupBlobUrlMonitor() {
         processBlob(blob, blobUrl);
       }
     } catch (error) {
-      // 錯誤處理：確保即使發生錯誤也不影響原始功能
-      logger.error("處理 blob URL 時發生錯誤，不影響原始功能", {
-        error,
-      });
+      logger.error("處理 blob URL 時發生錯誤", { error });
     }
-
     // 返回原始的 blob URL
     return blobUrl;
   };
-
-  logger.info("Blob URL 監控已設置，已優化資源使用和穩定性");
+  logger.info("Blob URL 監控已設置");
 }
 
 /**
@@ -134,6 +129,25 @@ function shouldProcessBlob(blob, blobUrl) {
 }
 
 /**
+ * 處理潛在的音訊 blob
+ */
+function processBlob(blob, blobUrl) {
+  // 更新狀態
+  BlobMonitorState.markUrlAsProcessed(blobUrl);
+
+  // 評估 blob 是否可能是音訊
+  const evaluation = evaluateAudioLikelihood(blob);
+
+  if (!evaluation.isLikelyAudio) {
+    // 如果不可能是音訊，提前返回
+    return;
+  }
+
+  // 計算音訊持續時間並處理
+  processAudioBlobDuration(blob, blobUrl, evaluation);
+}
+
+/**
  * 處理音訊 blob 的持續時間計算
  */
 async function processAudioBlobDuration(blob, blobUrl, evaluation) {
@@ -150,13 +164,8 @@ async function processAudioBlobDuration(blob, blobUrl, evaluation) {
       });
       return;
     }
-
     // 將 Blob URL 與持續時間一起註冊到背景腳本
     registerBlobWithBackend(blobUrl, blob, durationMs, evaluation);
-
-    logger.info("Blob URL 已註冊，等待用戶右鍵點擊下載", {
-      durationMs: durationMs,
-    });
   } catch (error) {
     logger.error("計算 Blob 持續時間失敗，可能不是音訊檔案", { error });
   }
@@ -175,37 +184,14 @@ function registerBlobWithBackend(blobUrl, blob, durationMs, evaluation) {
     evaluation: evaluation,
     timestamp: new Date().toISOString(),
   });
-}
-
-/**
- * 處理潛在的音訊 blob
- */
-function processBlob(blob, blobUrl) {
-  // 更新狀態
-  BlobMonitorState.markUrlAsProcessed(blobUrl);
-
-  // 評估 blob 是否可能是音訊
-  const evaluation = evaluateAudioLikelihood(blob);
 
   // 記錄詳細資訊
-  logger.info("詳細資訊", {
+  logger.info("向背景腳本發送 blob 詳細資訊", {
     blobUrl: blobUrl.substring(0, 50),
     blobType: blob.type,
     blobSizeBytes: blob.size,
-    blobSizeKB: (blob.size / 1024).toFixed(2),
-    sizeCategory: evaluation.sizeCategory,
-    isLikelyAudio: evaluation.isLikelyAudio,
-    confidenceScore: evaluation.confidenceScore,
-    confidenceReason: evaluation.confidenceReason,
+    durationMs: durationMs,
   });
-
-  // 如果不可能是音訊，提前返回
-  if (!evaluation.isLikelyAudio) {
-    return;
-  }
-
-  // 計算音訊持續時間並處理
-  processAudioBlobDuration(blob, blobUrl, evaluation);
 }
 
 /**
