@@ -4,7 +4,11 @@
  */
 
 import { Logger } from "../utils/logger.js";
-import { TIME_CONSTANTS, MODULE_NAMES } from "../utils/constants.js";
+import {
+  TIME_CONSTANTS,
+  MODULE_NAMES,
+  BLOB_MONITOR_CONSTANTS,
+} from "../utils/constants.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.AUDIO_ANALYZER);
@@ -288,83 +292,46 @@ export async function extractBlobContent(blobUrl) {
  * @param {Blob} blob - 要評估的 Blob 對象
  * @returns {Object} - 包含評估結果的對象
  */
-export function evaluateAudioLikelihood(blob) {
-  if (!blob) {
-    return {
-      isLikelyAudio: false,
-      confidenceScore: 0,
-      confidenceReason: ["無效的 Blob 對象"],
-    };
-  }
-
-  // 初始化變數
-  let confidenceScore = 0;
-  const confidenceReason = [];
-
-  // 根據 MIME 類型評分
-  if (blob.type) {
-    if (blob.type.includes("audio/")) {
-      confidenceScore += 30;
-      confidenceReason.push("音訊 MIME 類型");
-    } else if (
-      blob.type.includes("video/mp4") ||
-      blob.type.includes("video/mpeg")
-    ) {
-      confidenceScore += 20;
-      confidenceReason.push("MP4 容器格式 (可能包含音訊)");
-    }
-  } else {
-    confidenceScore -= 10;
-    confidenceReason.push("無 MIME 類型");
-  }
-
-  // 根據檔案大小評分
-  if (blob.size) {
-    // 典型的語音訊息大小範圍
-    if (blob.size >= 20 * 1024 && blob.size <= 2 * 1024 * 1024) {
-      // 20KB 到 2MB
-      confidenceScore += 20;
-      confidenceReason.push("合理的語音訊息大小");
-    } else if (blob.size < 5 * 1024) {
-      confidenceScore -= 15;
-      confidenceReason.push("檔案太小");
-    } else if (blob.size > 10 * 1024 * 1024) {
-      confidenceScore -= 15;
-      confidenceReason.push("檔案太大");
-    }
-  }
-
-  // 分類大小
-  let sizeCategory = "未知";
-  if (blob.size < 10 * 1024) {
-    sizeCategory = "極小 (<10KB)";
-  } else if (blob.size < 100 * 1024) {
-    sizeCategory = "小 (10KB-100KB)";
-  } else if (blob.size < 1024 * 1024) {
-    sizeCategory = "中 (100KB-1MB)";
-  } else if (blob.size < 10 * 1024 * 1024) {
-    sizeCategory = "大 (1MB-10MB)";
-  } else {
-    sizeCategory = "極大 (>10MB)";
-  }
-
-  // 判斷最終信心度
-  const isLikelyAudio = confidenceScore >= 30;
-
-  return {
-    isLikelyAudio,
-    confidenceScore,
-    confidenceReason,
-    sizeCategory,
+export function isLikelyVoiceMessageBlob(blob) {
+  logger.debug("評估 Blob 是否為音訊檔案", {
     blobType: blob.type,
     blobSize: blob.size,
-    blobSizeKB: (blob.size / 1024).toFixed(2),
-  };
+  });
+
+  // 基本檢查 - blob 必須存在、有類型、有大小
+  if (!blob || !blob.type || !blob.size) {
+    logger.debug("Blob 不存在或無法取得基本資訊");
+    return false;
+  }
+
+  // 必須為可能的音訊類型之一
+  if (
+    !BLOB_MONITOR_CONSTANTS.POSSIBLE_AUDIO_TYPES.some((type) =>
+      blob.type.includes(type)
+    )
+  ) {
+    logger.debug("Blob 的類型不在可能的音訊類型列表中");
+    return false;
+  }
+
+  // 檔案不能太小
+  if (blob.size <= BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE) {
+    logger.debug("Blob 的大小太小");
+    return false;
+  }
+
+  if (blob.size >= BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE) {
+    logger.debug("Blob 的大小太大");
+    return false;
+  }
+
+  logger.debug("Blob 滿足音訊檔案的基本條件");
+  return true;
 }
 
 // 匯出所有功能
 export default {
   calculateAudioDuration,
   extractBlobContent,
-  evaluateAudioLikelihood,
+  isLikelyVoiceMessageBlob,
 };

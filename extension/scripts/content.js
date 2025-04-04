@@ -12,10 +12,7 @@ import {
   TIME_CONSTANTS,
   MODULE_NAMES,
 } from "./utils/constants.js";
-import {
-  handleExtractBlobRequest,
-  handleCalculateDurationRequest,
-} from "./url monitor/blob-monitor.js";
+import { handleExtractBlobRequest } from "./url monitor/blob-monitor.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.CONTENT_SCRIPT);
@@ -63,16 +60,6 @@ if (!isSupportedSite) {
     sendResponse
   ) {
     logger.debug("收到背景腳本訊息", { message });
-
-    // 特別處理 extractBlobContent 訊息
-    if (message.action === MESSAGE_ACTIONS.EXTRACT_BLOB) {
-      return handleExtractBlobRequest(message, sendResponse);
-    }
-
-    // 處理 calculateBlobDuration 訊息
-    if (message.action === MESSAGE_ACTIONS.CALCULATE_DURATION) {
-      return handleCalculateDurationRequest(message, sendResponse);
-    }
 
     // 其他訊息轉發到主模組
     window.postMessage(
