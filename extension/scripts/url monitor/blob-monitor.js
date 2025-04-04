@@ -71,54 +71,6 @@ const BlobMonitorState = {
 };
 
 /**
- * 日誌工具
- */
-const LogUtils = {
-  /**
-   * 記錄 Blob 詳細診斷資訊
-   */
-  logBlobDetails(blob, blobUrl, evaluation) {
-    const urlFeatures = blobUrl.substring(0, 50);
-    const timestamp = new Date().toISOString();
-    const stackTrace = new Error().stack;
-    const pageUrl = window.location.href;
-
-    logger.debug("Blob 詳細資訊", {
-      blobUrl: urlFeatures,
-      blobType: blob.type,
-      blobSizeBytes: blob.size,
-      blobSizeKB: evaluation.blobSizeKB,
-      sizeCategory: evaluation.sizeCategory,
-      isLikelyAudio: evaluation.isLikelyAudio,
-      confidenceScore: evaluation.confidenceScore,
-      confidenceReason: evaluation.confidenceReason,
-      timestamp: timestamp,
-      pageUrl: pageUrl,
-      stackTraceHint: stackTrace ? stackTrace.split("\n")[2] : "無法獲取",
-      creationContext: document.activeElement
-        ? document.activeElement.tagName
-        : "無法獲取",
-    });
-  },
-
-  /**
-   * 記錄 Blob 錯誤詳情
-   */
-  logBlobError(blobUrl, blob, error) {
-    const urlFeatures = blobUrl.substring(0, 50);
-    const timestamp = new Date().toISOString();
-
-    logger.debug("Blob 錯誤詳情", {
-      blobUrl: urlFeatures,
-      blobType: blob.type,
-      blobSizeKB: (blob.size / 1024).toFixed(2),
-      error: error.message,
-      timestamp: timestamp,
-    });
-  },
-};
-
-/**
  * 設置 Blob URL 監控
  * 攔截 URL.createObjectURL 方法來捕獲 blob URL 的創建
  */
@@ -236,7 +188,16 @@ function processBlob(blob, blobUrl) {
   const evaluation = evaluateAudioLikelihood(blob);
 
   // 記錄詳細資訊
-  LogUtils.logBlobDetails(blob, blobUrl, evaluation);
+  logger.info("詳細資訊", {
+    blobUrl: blobUrl.substring(0, 50),
+    blobType: blob.type,
+    blobSizeBytes: blob.size,
+    blobSizeKB: (blob.size / 1024).toFixed(2),
+    sizeCategory: evaluation.sizeCategory,
+    isLikelyAudio: evaluation.isLikelyAudio,
+    confidenceScore: evaluation.confidenceScore,
+    confidenceReason: evaluation.confidenceReason,
+  });
 
   // 如果不可能是音訊，提前返回
   if (!evaluation.isLikelyAudio) {
