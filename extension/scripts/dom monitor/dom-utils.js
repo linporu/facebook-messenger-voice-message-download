@@ -13,12 +13,17 @@ import { DOM_CONSTANTS } from "../utils/constants.js";
  * @returns {boolean} - 如果元素是語音訊息滑桿則返回 true
  */
 export function isVoiceMessageSlider(element) {
-  return (
-    element &&
-    element.getAttribute("role") === "slider" &&
-    element.getAttribute("aria-label") ===
-      DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL
-  );
+  if (!element || element.getAttribute("role") !== "slider") {
+    return false;
+  }
+  
+  const elementLabel = element.getAttribute("aria-label");
+  if (!elementLabel) {
+    return false;
+  }
+  
+  // 檢查元素的 aria-label 是否在支援的標籤列表中
+  return DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL.includes(elementLabel);
 }
 
 /**
@@ -60,10 +65,15 @@ export function isPotentialVoiceMessageContainer(element) {
   }
 
   // 檢查元素是否包含語音訊息相關元素
-
-  const hasSlider = !!element.querySelector(
-    `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
-  );
+  let hasSlider = false;
+  
+  // 遍歷所有可能的語音訊息滑桿標籤
+  for (const label of DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL) {
+    if (element.querySelector(`[role="slider"][aria-label="${label}"]`)) {
+      hasSlider = true;
+      break;
+    }
+  }
 
   return hasSlider;
 }
@@ -91,9 +101,18 @@ export function findVoiceMessageElement(clickedElement) {
 
   // 策略 2: 在點擊元素內部查找
   Logger.debug("在元素內部尋找語音訊息元素");
-  const sliderInside = clickedElement.querySelector(
-    `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
-  );
+  let sliderInside = null;
+  
+  // 遍歷所有可能的語音訊息滑桿標籤
+  for (const label of DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL) {
+    const foundSlider = clickedElement.querySelector(
+      `[role="slider"][aria-label="${label}"]`
+    );
+    if (foundSlider) {
+      sliderInside = foundSlider;
+      break;
+    }
+  }
   if (sliderInside) {
     Logger.debug("在元素內部找到語音訊息滑杆");
     return { element: sliderInside, type: "slider" };
@@ -114,9 +133,18 @@ export function findVoiceMessageElement(clickedElement) {
       });
 
       // 在父元素中查找滑杆
-      const slider = parent.querySelector(
-        `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
-      );
+      let slider = null;
+      
+      // 遍歷所有可能的語音訊息滑桿標籤
+      for (const label of DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL) {
+        const foundSlider = parent.querySelector(
+          `[role="slider"][aria-label="${label}"]`
+        );
+        if (foundSlider) {
+          slider = foundSlider;
+          break;
+        }
+      }
       if (slider) {
         Logger.debug("在容器中找到語音訊息滑杆");
         return { element: slider, type: "slider" };
