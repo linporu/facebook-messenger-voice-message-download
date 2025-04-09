@@ -29,8 +29,12 @@ const BlobMonitorState = {
   // 記錄已處理的 blob URL，避免重複處理相同的 URL
   processedUrls: new Set(),
 
-  // 節流控制 - 記錄最後一次處理 blob 的時間戳
-  lastProcessedTime: 0,
+  // 處理隊列和狀態
+  processingQueue: [],
+  isProcessing: false,
+  
+  // 已分析過的 blob 追蹤
+  analyzedBlobs: new WeakMap(),
 
   // 將 blob 標記為自己創建的
   markAsSelfCreated(blob) {
@@ -51,7 +55,6 @@ const BlobMonitorState = {
   // 標記 URL 為已處理
   markUrlAsProcessed(url) {
     this.processedUrls.add(url);
-    this.lastProcessedTime = Date.now();
   },
 
   // 清理已處理的 URL
@@ -59,13 +62,59 @@ const BlobMonitorState = {
     this.processedUrls.clear();
     logger.debug("已清空處理過的 blob URL 記錄");
   },
-
-  // 檢查是否應該節流
-  shouldThrottle() {
-    return (
-      Date.now() - this.lastProcessedTime <
-      BLOB_MONITOR_CONSTANTS.THROTTLE_INTERVAL
-    );
+  
+  // 將 blob 加入處理隊列
+  enqueueBlob(blob, blobUrl) {
+    this.processingQueue.push({ blob, blobUrl });
+    logger.debug("將 blob URL 加入處理隊列", { queueLength: this.processingQueue.length });
+    this.processNextInQueue();
+  },
+  
+  // 處理隊列中的下一個項目
+  async processNextInQueue() {
+    // 如果已經在處理或隊列為空，則直接返回
+    if (this.isProcessing || this.processingQueue.length === 0) {
+      return;
+    }
+    
+    this.isProcessing = true;
+    const { blob, blobUrl } = this.processingQueue.shift();
+    
+    try {
+      // 檢查是否已分析過此 blob
+      if (this.analyzedBlobs.has(blob)) {
+        logger.debug("跳過已分析過的 blob", { blobUrl: blobUrl.substring(0, 50) });
+      } else {
+        // 標記為已分析
+        this.analyzedBlobs.set(blob, true);
+        
+        // 評估 blob 是否可能是語音訊息
+        const isLikelyVoiceMessage = isLikelyVoiceMessageBlob(blob);
+        
+        if (isLikelyVoiceMessage) {
+          logger.debug("處理可能是語音訊息的 blob", { blobUrl: blobUrl.substring(0, 50) });
+          // 計算音訊持續時間
+          const durationMs = await calculateAudioDuration(blob);
+          
+          // 驗證持續時間是否合理
+          if (durationMs >= BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION && 
+              durationMs <= BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION) {
+            // 註冊到背景腳本
+            registerBlobWithBackend(blob, blobUrl, durationMs);
+          } else {
+            logger.debug("音訊持續時間超出有效範圍，不註冊", { durationMs });
+          }
+        } else {
+          logger.debug("blob 不是語音訊息，略過處理", { blobType: blob.type });
+        }
+      }
+    } catch (error) {
+      logger.error("處理隊列中的 blob 時發生錯誤", { error });
+    } finally {
+      this.isProcessing = false;
+      // 繼續處理下一個
+      this.processNextInQueue();
+    }
   },
 };
 
@@ -120,68 +169,82 @@ function shouldProcessBlob(blob, blobUrl) {
   if (BlobMonitorState.isSelfCreated(blob)) {
     return false;
   }
-  // 節流控制
-  if (BlobMonitorState.shouldThrottle()) {
-    return false;
-  }
   return true;
 }
 
 /**
  * 處理潛在的音訊 blob
  */
-async function processBlob(blob, blobUrl) {
-  // 更新狀態
+function processBlob(blob, blobUrl) {
+  // 先標記為已處理，避免重複加入隊列
   BlobMonitorState.markUrlAsProcessed(blobUrl);
-
-  // 評估 blob 是否可能是語音訊息
-  const isLikelyVoiceMessage = isLikelyVoiceMessageBlob(blob);
-
-  if (!isLikelyVoiceMessage) {
-    // 如果不可能是語音訊息，提前返回
-    return;
-  }
-
-  try {
-    // 計算音訊持續時間 - 使用 await 等待 Promise 解析
-    const durationMs = await calculateAudioDuration(blob);
-
-    // 將 Blob URL 與持續時間一起註冊到背景腳本
-    registerBlobWithBackend(blob, blobUrl, durationMs);
-  } catch (error) {
-    logger.error("處理音訊 blob 時發生錯誤", { error });
-  }
+  
+  // 將 blob 加入處理隊列
+  BlobMonitorState.enqueueBlob(blob, blobUrl);
 }
+
+// 用於追蹤已註冊的 blob 識別碼，避免重複註冊
+const registeredBlobIds = new Set();
 
 /**
  * 向背景腳本註冊 Blob
  */
 function registerBlobWithBackend(blob, blobUrl, durationMs) {
+  // 快速檢查是否已註冊
+  if (!blobUrl || !BlobMonitorState.isUrlProcessed(blobUrl)) {
+    logger.debug("跳過未標記為已處理的 URL");
+    return;
+  }
+  
+  // 生成 blob 識別碼
+  const currentTimestamp = new Date().toISOString();
+  const urlPart = blobUrl.substring(0, 50);
+  const blobIdentifier = `${urlPart}-${blob.size}-${durationMs}`;
+  
+  // 檢查是否已經註冊過相同的識別碼
+  if (registeredBlobIds.has(blobIdentifier)) {
+    logger.debug("跳過重複註冊的 blob", { blobIdentifier });
+    return;
+  }
+  
+  // 記錄識別碼，防止重複註冊
+  registeredBlobIds.add(blobIdentifier);
+  
+  // 發送註冊訊息到背景腳本
   window.sendToBackground({
     action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
     blobUrl: blobUrl,
     blobType: blob.type,
     blobSize: blob.size,
     durationMs: durationMs,
-    timestamp: new Date().toISOString(),
+    timestamp: currentTimestamp,
+    blobIdentifier: blobIdentifier, // 加入識別碼供背景腳本進一步過濾
   });
 
   // 記錄詳細資訊
   logger.info("向背景腳本發送 blob url 註冊資訊", {
-    blobUrl: blobUrl.substring(0, 50),
+    blobUrl: urlPart,
     blobType: blob.type,
     blobSizeBytes: blob.size,
     durationMs: durationMs,
+    blobIdentifier: blobIdentifier
   });
 }
 
 /**
  * 設置定期清理
- * 定期清空已處理的 URL 集合，避免記憶體洩漏
+ * 定期清空已處理的 URL 集合和已註冊的識別碼，避免記憶體洩漏
  */
 function setupPeriodicCleanup() {
   setInterval(() => {
     BlobMonitorState.clearProcessedUrls();
+    // 限制已註冊識別碼集合的大小，只保留最近的 1000 個
+    if (registeredBlobIds.size > 1000) {
+      const idsArray = Array.from(registeredBlobIds);
+      const idsToRemove = idsArray.slice(0, idsArray.length - 1000);
+      idsToRemove.forEach(id => registeredBlobIds.delete(id));
+      logger.debug(`清理過多的已註冊識別碼：從 ${idsArray.length} 減少到 1000`);
+    }
   }, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
 }
 
