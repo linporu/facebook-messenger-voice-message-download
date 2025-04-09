@@ -13,7 +13,6 @@ import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
 import {
   MESSAGE_ACTIONS,
-  MESSAGE_SOURCES,
   MODULE_NAMES,
   DOM_CONSTANTS,
 } from "../utils/constants.js";
@@ -56,38 +55,46 @@ export function initDomDetector() {
 /**
  * 搜索和處理語音訊息滑桿
  * 無參數時執行完整掃描，提供節點時只掃描該節點
- * 
+ *
  * @param {Node|null} [node=null] - 要搜索的節點，如果未提供則搜索整個文檔
  * @returns {number} - 找到並處理的滑桿數量
  */
 export function detectVoiceMessages(node = null) {
   const isFullScan = node === null;
   const rootElement = isFullScan ? document : node;
-  
+
   // 如果是完整掃描，記錄開始日誌
   if (isFullScan) {
-    Logger.info("執行完整 DOM 掃描", { module: MODULE_NAMES.DOM_DETECTOR });
+    Logger.debug("執行完整 DOM 掃描", { module: MODULE_NAMES.DOM_DETECTOR });
   }
-  
+
   // 如果提供了節點且不是完整掃描，先檢查節點本身
-  if (!isFullScan && node.nodeType === Node.ELEMENT_NODE && isVoiceMessageSlider(node)) {
+  if (
+    !isFullScan &&
+    node.nodeType === Node.ELEMENT_NODE &&
+    isVoiceMessageSlider(node)
+  ) {
     processSliderElement(node);
   }
-  
+
   // 如果根元素不支援 querySelectorAll，直接返回
   if (!rootElement || !rootElement.querySelectorAll) {
+    Logger.debug("根元素不支援 querySelectorAll，未找到滑桿元素", {
+      module: MODULE_NAMES.DOM_DETECTOR,
+      slidersFound: sliders.length,
+    });
     return 0;
   }
-  
+
   // 查詢和處理滑桿
   const sliders = [];
-  
-  DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL.forEach(label => {
+
+  DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL.forEach((label) => {
     try {
       const currentLabelSliders = rootElement.querySelectorAll(
         `[role="slider"][aria-label="${label}"]`
       );
-      
+
       if (currentLabelSliders.length > 0) {
         sliders.push(...currentLabelSliders);
       }
@@ -95,7 +102,7 @@ export function detectVoiceMessages(node = null) {
       Logger.warn("查詢滑桿時發生錯誤", {
         module: MODULE_NAMES.DOM_DETECTOR,
         error: error.message,
-        node: rootElement.tagName || rootElement.nodeName
+        node: rootElement.tagName || rootElement.nodeName,
       });
     }
   });
@@ -104,21 +111,21 @@ export function detectVoiceMessages(node = null) {
   for (const slider of sliders) {
     processSliderElement(slider);
   }
-  
+
   // 記錄適當的日誌
   if (isFullScan) {
-    Logger.info("完整掃描找到的滑桿數量", {
+    Logger.debug(`完整掃描找到的滑桿數量：${sliders.length}`, {
       module: MODULE_NAMES.DOM_DETECTOR,
-      slidersCount: sliders.length
+      slidersFound: sliders.length,
     });
   } else if (sliders.length > 0) {
-    Logger.debug("節點掃描完成", {
+    Logger.debug(`節點掃描找到的滑桿數量：${sliders.length}`, {
       module: MODULE_NAMES.DOM_DETECTOR,
       nodeTag: node.tagName || node.nodeName,
-      slidersFound: sliders.length
+      slidersFound: sliders.length,
     });
   }
-  
+
   return sliders.length;
 }
 
