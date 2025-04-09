@@ -92,7 +92,23 @@ export const UI_CONSTANTS = {
 // ===========================================
 export const DOM_CONSTANTS = {
   // 語音訊息滑桿的 aria-label
-  VOICE_MESSAGE_SLIDER_ARIA_LABEL: "音訊滑桿",
+  VOICE_MESSAGE_SLIDER_ARIA_LABEL: [
+    "音訊滑桿",
+    "音频时间刷",
+    "Barra de arrastre de audio",
+    "Audio scrubber",
+    "অডিও স্ক্রাবার",
+    "ऑडियो स्क्रबर",
+    "شريط تمرير المقطع الصوتي",
+    "Barra seletora de áudio",
+    "Barra de duração do áudio",
+    "Ползунок аудио",
+    "音声スライダー",
+    "Schieberegler für Audio",
+    "Curseur audio",
+    "Scrubber Audio",
+    "오디오 스크러버",
+  ],
 
   // 語音訊息元素的 data 屬性
   VOICE_MESSAGE_ELEMENT_DATA_ATTR: "data-voice-message-element",
