@@ -13,7 +13,7 @@ import { DOM_CONSTANTS } from "../utils/constants.js";
  * @returns {boolean} - 如果元素是語音訊息滑桿則返回 true
  */
 export function isVoiceMessageSlider(element) {
-  if (!element || element.getAttribute("role") !== "slider") {
+  if (!element || element.nodeType !== Node.ELEMENT_NODE || element.getAttribute("role") !== "slider") {
     return false;
   }
   

@@ -6,6 +6,7 @@
 import {
   getDurationFromSlider,
   markAsVoiceMessageElement,
+  isVoiceMessageSlider,
 } from "./dom-utils.js";
 import { generateVoiceMessageId } from "../utils/id-generator.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
@@ -23,24 +24,23 @@ import {
 export function initDomDetector() {
   Logger.info("初始化 DOM 偵測器", { module: MODULE_NAMES.DOM_DETECTOR });
 
-  // 立即執行一次偵測
+  // 立即執行一次完整掃描
   detectVoiceMessages();
 
   // 設置 MutationObserver 偵測動態載入的內容
   const observer = new MutationObserver((mutations) => {
-    let shouldDetect = false;
-
-    // 檢查是否有新節點添加
+    // 對每個 mutation 進行處理
     for (const mutation of mutations) {
       if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
-        shouldDetect = true;
-        break;
+        // 只處理新增的節點
+        for (const node of mutation.addedNodes) {
+          // 檢查節點是否為元素節點
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // 處理單個節點及其子樹
+            searchAndProcessSlidersInNode(node);
+          }
+        }
       }
-    }
-
-    // 如果有新節點添加，執行偵測
-    if (shouldDetect) {
-      detectVoiceMessages();
     }
   });
 
@@ -54,9 +54,60 @@ export function initDomDetector() {
 }
 
 /**
- * 偵測頁面上的語音訊息元素
+ * 在指定節點及其子樹中搜索和處理語音訊息滑桿
+ * 
+ * @param {Node} node - 要搜索的節點
+ */
+function searchAndProcessSlidersInNode(node) {
+  // 先檢查節點本身是否為滑桿
+  if (node.nodeType === Node.ELEMENT_NODE && isVoiceMessageSlider(node)) {
+    processSliderElement(node);
+  }
+
+  // 在節點子樹中搜索滑桿
+  const sliders = [];
+  
+  // 如果節點有 querySelectorAll 方法
+  if (node.querySelectorAll) {
+    // 遍歷所有可能的語音訊息滑桿標籤
+    DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL.forEach(label => {
+      try {
+        // 限制在當前節點子樹中查詢
+        const currentLabelSliders = node.querySelectorAll(
+          `[role="slider"][aria-label="${label}"]`
+        );
+        
+        if (currentLabelSliders.length > 0) {
+          sliders.push(...currentLabelSliders);
+        }
+      } catch (error) {
+        Logger.warn("在節點中查詢滑桿時發生錯誤", {
+          module: MODULE_NAMES.DOM_DETECTOR,
+          error: error.message,
+          nodeType: node.nodeType,
+        });
+      }
+    });
+  }
+
+  // 處理找到的滑桿
+  for (const slider of sliders) {
+    processSliderElement(slider);
+  }
+
+  Logger.debug("節點掃描完成", {
+    module: MODULE_NAMES.DOM_DETECTOR,
+    nodeTag: node.tagName,
+    slidersFound: sliders.length,
+  });
+}
+
+/**
+ * 偵測頁面上的語音訊息元素 (完整掃描)
  */
 export function detectVoiceMessages() {
+  Logger.info("執行完整 DOM 掃描", { module: MODULE_NAMES.DOM_DETECTOR });
+  
   // 尋找所有滑桿元素
   const sliders = [];
   
@@ -73,6 +124,12 @@ export function detectVoiceMessages() {
     }
   });
 
+  Logger.info("完整掃描找到的滑桿數量", { 
+    module: MODULE_NAMES.DOM_DETECTOR,
+    slidersCount: sliders.length 
+  });
+
+  // 處理所有找到的滑桿
   for (const slider of sliders) {
     processSliderElement(slider);
   }
