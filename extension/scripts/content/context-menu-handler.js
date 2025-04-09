@@ -6,7 +6,6 @@
 import {
   findVoiceMessageElement,
   getDurationFromSlider,
-  getSliderFromPlayButton,
 } from "../dom monitor/dom-utils.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
@@ -57,8 +56,7 @@ function handleContextMenu(event) {
   });
 
   // 根據元素類型獲取滑桿元素
-  const sliderElement =
-    type === "slider" ? element : getSliderFromPlayButton(element);
+  const sliderElement = type === "slider" ? element : null;
   Logger.debug("滑桿元素", {
     module: MODULE_NAMES.CONTEXT_MENU,
     data: sliderElement,

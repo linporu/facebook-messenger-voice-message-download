@@ -91,13 +91,6 @@ export const UI_CONSTANTS = {
 // DOM 相關常數 (從 dom-utils.js 移過來)
 // ===========================================
 export const DOM_CONSTANTS = {
-  // 語音訊息播放按鈕的 SVG 路徑，用於識別語音訊息元素
-  VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH:
-    "M10 25.5v-15a1.5 1.5 0 012.17-1.34l15 7.5a1.5 1.5 0 010 2.68l-15 7.5A1.5 1.5 0 0110 25.5z",
-
-  // 語音訊息播放按鈕的 aria-label
-  VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL: "播放",
-
   // 語音訊息滑桿的 aria-label
   VOICE_MESSAGE_SLIDER_ARIA_LABEL: "音訊滑桿",
 
