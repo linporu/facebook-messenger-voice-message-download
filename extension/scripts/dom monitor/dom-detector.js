@@ -4,9 +4,7 @@
  */
 
 import {
-
   getDurationFromSlider,
-
   markAsVoiceMessageElement,
 } from "./dom-utils.js";
 import { generateVoiceMessageId } from "../utils/id-generator.js";
@@ -15,9 +13,7 @@ import { Logger } from "../utils/logger.js";
 import {
   MESSAGE_ACTIONS,
   MESSAGE_SOURCES,
-
   MODULE_NAMES,
-
   DOM_CONSTANTS,
 } from "../utils/constants.js";
 
@@ -69,7 +65,6 @@ export function detectVoiceMessages() {
   for (const slider of sliders) {
     processSliderElement(slider);
   }
-
 }
 
 /**
@@ -97,31 +92,12 @@ function processSliderElement(sliderElement) {
     // 將持續時間轉換為毫秒
     const durationMs = secondsToMilliseconds(durationSec);
 
-    // 發送訊息到背景腳本，檢查函數是否存在
-    if (typeof window.sendToBackground === "function") {
-      window.sendToBackground({
-        action: MESSAGE_ACTIONS.REGISTER_ELEMENT,
-        elementId: elementId,
-        durationMs: durationMs,
-      });
-    } else {
-      // 使用替代方法發送訊息
-      window.postMessage(
-        {
-          type: MESSAGE_SOURCES.CONTENT_SCRIPT,
-          message: {
-            action: MESSAGE_ACTIONS.REGISTER_ELEMENT,
-            elementId: elementId,
-            durationMs: durationMs,
-          },
-        },
-        "*"
-      );
-
-      Logger.warn("window.sendToBackground 不是函數，使用替代方法", {
-        module: MODULE_NAMES.DOM_DETECTOR,
-      });
-    }
+    // 發送訊息到背景腳本
+    window.sendToBackground({
+      action: MESSAGE_ACTIONS.REGISTER_ELEMENT,
+      elementId: elementId,
+      durationMs: durationMs,
+    });
 
     // 輸出偵測到的語音訊息
     Logger.debug("找到語音訊息", {
