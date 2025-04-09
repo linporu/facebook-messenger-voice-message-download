@@ -7,46 +7,6 @@ import { Logger } from "../utils/logger.js";
 import { DOM_CONSTANTS } from "../utils/constants.js";
 
 /**
- * 檢查元素是否為語音訊息播放按鈕
- *
- * @param {Element|null} element - 要檢查的元素
- * @returns {boolean} - 如果元素是語音訊息播放按鈕則返回 true
- */
-export function isVoiceMessagePlayButton(element) {
-  if (!element) return false;
-
-  // 檢查 aria-label
-  if (
-    element.getAttribute("role") === "button" &&
-    element.getAttribute("aria-label") ===
-      DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL
-  ) {
-    // 檢查是否包含特定 SVG 路徑
-    const svgPath = element.querySelector("path");
-    if (
-      svgPath &&
-      svgPath.getAttribute("d") ===
-        DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH
-    ) {
-      return true;
-    }
-
-    // 如果沒有直接找到 SVG 路徑，檢查內部的 SVG 元素
-    const svg = element.querySelector("svg");
-    if (svg) {
-      const path = svg.querySelector("path");
-      return (
-        path &&
-        path.getAttribute("d") ===
-          DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_SVG_PATH
-      );
-    }
-  }
-
-  return false;
-}
-
-/**
  * 檢查元素是否為語音訊息滑桿
  *
  * @param {Element|null} element - 要檢查的元素
@@ -89,40 +49,6 @@ export function getDurationFromSlider(sliderElement) {
 }
 
 /**
- * 從播放按鈕元素獲取相關的滑桿元素
- *
- * @param {Element} playButtonElement - 播放按鈕元素
- * @returns {Element|null} - 滑桿元素，如果找不到則返回 null
- */
-export function getSliderFromPlayButton(playButtonElement) {
-  if (!isVoiceMessagePlayButton(playButtonElement)) {
-    return null;
-  }
-
-  // 嘗試在父元素中查找滑桿
-  let parent = playButtonElement.parentElement;
-  while (parent) {
-    // 在父元素中查找滑桿
-    const slider = parent.querySelector(
-      `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
-    );
-    if (slider) {
-      return slider;
-    }
-
-    // 向上遍歷 DOM 樹
-    parent = parent.parentElement;
-
-    // 限制遍歷深度，避免無限循環
-    if (parent === document.body) {
-      break;
-    }
-  }
-
-  return null;
-}
-
-/**
  * 檢查元素是否為潛在的語音訊息容器
  *
  * @param {Element|null} element - 要檢查的元素
@@ -134,14 +60,12 @@ export function isPotentialVoiceMessageContainer(element) {
   }
 
   // 檢查元素是否包含語音訊息相關元素
-  const hasPlayButton = !!element.querySelector(
-    `[role="button"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
-  );
+
   const hasSlider = !!element.querySelector(
     `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
   );
 
-  return hasPlayButton || hasSlider;
+  return hasSlider;
 }
 
 /**
@@ -165,11 +89,6 @@ export function findVoiceMessageElement(clickedElement) {
     return { element: clickedElement, type: "slider" };
   }
 
-  if (isVoiceMessagePlayButton(clickedElement)) {
-    Logger.debug("直接找到語音訊息播放按鈕元素");
-    return { element: clickedElement, type: "playButton" };
-  }
-
   // 策略 2: 在點擊元素內部查找
   Logger.debug("在元素內部尋找語音訊息元素");
   const sliderInside = clickedElement.querySelector(
@@ -178,14 +97,6 @@ export function findVoiceMessageElement(clickedElement) {
   if (sliderInside) {
     Logger.debug("在元素內部找到語音訊息滑杆");
     return { element: sliderInside, type: "slider" };
-  }
-
-  const playButtonInside = clickedElement.querySelector(
-    `[role="button"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
-  );
-  if (playButtonInside && isVoiceMessagePlayButton(playButtonInside)) {
-    Logger.debug("在元素內部找到語音訊息播放按鈕");
-    return { element: playButtonInside, type: "playButton" };
   }
 
   // 策略 3: 向上遍歷 DOM 樹
@@ -209,15 +120,6 @@ export function findVoiceMessageElement(clickedElement) {
       if (slider) {
         Logger.debug("在容器中找到語音訊息滑杆");
         return { element: slider, type: "slider" };
-      }
-
-      // 在父元素中查找播放按鈕
-      const playButton = parent.querySelector(
-        `[role="button"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
-      );
-      if (playButton && isVoiceMessagePlayButton(playButton)) {
-        Logger.debug("在容器中找到語音訊息播放按鈕");
-        return { element: playButton, type: "playButton" };
       }
     }
 

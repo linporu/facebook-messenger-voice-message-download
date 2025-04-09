@@ -62,7 +62,7 @@ export function initDomDetector() {
  * 偵測頁面上的語音訊息元素
  */
 export function detectVoiceMessages() {
-  // 方法 1: 尋找滑桿元素
+  // 尋找滑桿元素
   const sliders = document.querySelectorAll(
     `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
   );
@@ -71,19 +71,6 @@ export function detectVoiceMessages() {
     processSliderElement(slider);
   }
 
-  // 方法 2: 尋找播放按鈕
-  const playButtons = document.querySelectorAll(
-    `[role="button"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_PLAY_BUTTON_ARIA_LABEL}"]`
-  );
-
-  for (const button of playButtons) {
-    if (isVoiceMessagePlayButton(button)) {
-      const slider = getSliderFromPlayButton(button);
-      if (slider) {
-        processSliderElement(slider);
-      }
-    }
-  }
 }
 
 /**
