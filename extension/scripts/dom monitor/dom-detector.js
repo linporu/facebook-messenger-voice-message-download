@@ -57,10 +57,21 @@ export function initDomDetector() {
  * 偵測頁面上的語音訊息元素
  */
 export function detectVoiceMessages() {
-  // 尋找滑桿元素
-  const sliders = document.querySelectorAll(
-    `[role="slider"][aria-label="${DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL}"]`
-  );
+  // 尋找所有滑桿元素
+  const sliders = [];
+  
+  // 遍歷所有可能的語音訊息滑桿標籤
+  DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL.forEach(label => {
+    // 查詢符合當前標籤的滑桿元素
+    const currentLabelSliders = document.querySelectorAll(
+      `[role="slider"][aria-label="${label}"]`
+    );
+    
+    // 將找到的元素添加到總集合中
+    if (currentLabelSliders.length > 0) {
+      sliders.push(...currentLabelSliders);
+    }
+  });
 
   for (const slider of sliders) {
     processSliderElement(slider);
