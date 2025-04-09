@@ -4,10 +4,9 @@
  */
 
 import {
-  isVoiceMessageSlider,
-  isVoiceMessagePlayButton,
+
   getDurationFromSlider,
-  getSliderFromPlayButton,
+
   markAsVoiceMessageElement,
 } from "./dom-utils.js";
 import { generateVoiceMessageId } from "../utils/id-generator.js";
@@ -16,9 +15,9 @@ import { Logger } from "../utils/logger.js";
 import {
   MESSAGE_ACTIONS,
   MESSAGE_SOURCES,
-  MESSAGE_TYPES,
+
   MODULE_NAMES,
-  TIME_CONSTANTS,
+
   DOM_CONSTANTS,
 } from "../utils/constants.js";
 
