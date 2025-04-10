@@ -19,18 +19,36 @@ import {
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_MONITOR);
 
 /**
- * Blob 監控狀態管理
+ * Blob processing queue object
  */
-const BlobMonitorState = {
+const BlobProcessingQueue = {
   // 處理隊列和狀態
   processingQueue: [],
   isProcessing: false,
 
-  // 已分析過的 blob 追蹤
-  analyzedBlobs: new WeakMap(),
+  // 追蹤已處理過的 blob
+  processedBlobs: new WeakMap(),
+
+  // 檢查是否應該處理這個 blob
+  shouldProcess(blob) {
+    // 基本檢查 - blob 必須存在且有類型
+    if (!blob || !blob.type) {
+      return false;
+    }
+    // 檢查是否已處理過此 blob
+    if (this.processedBlobs.has(blob)) {
+      return false;
+    }
+    // 評估 blob 是否可能是語音訊息
+    const isLikelyVoiceMessage = isLikelyVoiceMessageBlob(blob);
+    if (!isLikelyVoiceMessage) {
+      return false;
+    }
+    return true;
+  },
 
   // 將 blob 加入處理隊列
-  enqueueBlob(blob, blobUrl) {
+  enqueue(blob, blobUrl) {
     this.processingQueue.push({ blob, blobUrl });
     logger.debug("將 blob URL 加入處理隊列", {
       queueLength: this.processingQueue.length,
@@ -49,8 +67,8 @@ const BlobMonitorState = {
     const { blob, blobUrl } = this.processingQueue.shift();
 
     try {
-      // 標記為已分析
-      this.analyzedBlobs.set(blob, true);
+      // 標記為已處理
+      this.processedBlobs.set(blob, true);
 
       // 計算音訊持續時間
       const durationMs = await calculateAudioDuration(blob);
@@ -84,9 +102,9 @@ export function setupBlobUrlMonitor() {
 
     try {
       // 檢查是否應該處理這個 blob
-      if (shouldProcessBlob(blob)) {
+      if (BlobProcessingQueue.shouldProcess(blob)) {
         // 將 blob 加入處理隊列
-        BlobMonitorState.enqueueBlob(blob, blobUrl);
+        BlobProcessingQueue.enqueue(blob, blobUrl);
       }
     } catch (error) {
       logger.error("處理 blob URL 時發生錯誤", { error });
@@ -95,28 +113,6 @@ export function setupBlobUrlMonitor() {
     return blobUrl;
   };
   logger.info("Blob URL 監控已設置");
-}
-
-/**
- * 檢查是否應該處理這個 blob
- */
-function shouldProcessBlob(blob) {
-  // 基本檢查 - blob 必須存在且有類型
-  if (!blob || !blob.type) {
-    return false;
-  }
-
-  // 檢查是否已分析過此 blob
-  if (BlobMonitorState.analyzedBlobs.has(blob)) {
-    return false;
-  }
-
-  // 評估 blob 是否可能是語音訊息
-  const isLikelyVoiceMessage = isLikelyVoiceMessageBlob(blob);
-  if (!isLikelyVoiceMessage) {
-    return false;
-  }
-  return true;
 }
 
 /**
@@ -148,7 +144,7 @@ function registerBlobWithBackend(blob, blobUrl, durationMs) {
  */
 function setupPeriodicCleanup() {
   setInterval(() => {
-    // 目前 analyzedBlobs 是弱引用，不用主動清理
+    // 目前 processedBlobs 是弱引用，不用主動清理
   }, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
 }
 
@@ -213,5 +209,5 @@ export default {
   setupBlobUrlMonitor,
   handleExtractBlobRequest,
   // 導出供測試和偵錯使用的內部狀態
-  BlobMonitorState,
+  BlobProcessingQueue,
 };
