@@ -166,9 +166,6 @@ function processBlob(blob, blobUrl) {
   BlobMonitorState.enqueueBlob(blob, blobUrl);
 }
 
-// 用於追蹤已註冊的 blob 識別碼，避免重複註冊
-const registeredBlobIds = new Set();
-
 /**
  * 向背景腳本註冊 Blob
  */
@@ -177,15 +174,6 @@ function registerBlobWithBackend(blob, blobUrl, durationMs) {
   const currentTimestamp = new Date().toISOString();
   const urlPart = blobUrl.substring(0, 50);
   const blobIdentifier = `${urlPart}-${blob.size}-${durationMs}`;
-
-  // 檢查是否已經註冊過相同的識別碼
-  if (registeredBlobIds.has(blobIdentifier)) {
-    logger.debug("跳過重複註冊的 blob", { blobIdentifier });
-    return;
-  }
-
-  // 記錄識別碼，防止重複註冊
-  registeredBlobIds.add(blobIdentifier);
 
   // 發送註冊訊息到背景腳本
   window.sendToBackground({
@@ -213,15 +201,7 @@ function registerBlobWithBackend(blob, blobUrl, durationMs) {
  * 定期清空已處理的 URL 集合和已註冊的識別碼，避免記憶體洩漏
  */
 function setupPeriodicCleanup() {
-  setInterval(() => {
-    // 限制已註冊識別碼集合的大小，只保留最近的 1000 個
-    if (registeredBlobIds.size > 1000) {
-      const idsArray = Array.from(registeredBlobIds);
-      const idsToRemove = idsArray.slice(0, idsArray.length - 1000);
-      idsToRemove.forEach((id) => registeredBlobIds.delete(id));
-      logger.debug(`清理過多的已註冊識別碼：從 ${idsArray.length} 減少到 1000`);
-    }
-  }, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
+  setInterval(() => {}, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
 }
 
 /**
