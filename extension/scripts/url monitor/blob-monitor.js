@@ -49,39 +49,14 @@ const BlobMonitorState = {
     const { blob, blobUrl } = this.processingQueue.shift();
 
     try {
-      // 檢查是否已分析過此 blob
-      if (this.analyzedBlobs.has(blob)) {
-        logger.debug("跳過已分析過的 blob", {
-          blobUrl: blobUrl.substring(0, 50),
-        });
-      } else {
-        // 標記為已分析
-        this.analyzedBlobs.set(blob, true);
+      // 標記為已分析
+      this.analyzedBlobs.set(blob, true);
 
-        // 評估 blob 是否可能是語音訊息
-        const isLikelyVoiceMessage = isLikelyVoiceMessageBlob(blob);
+      // 計算音訊持續時間
+      const durationMs = await calculateAudioDuration(blob);
 
-        if (isLikelyVoiceMessage) {
-          logger.debug("處理可能是語音訊息的 blob", {
-            blobUrl: blobUrl.substring(0, 50),
-          });
-          // 計算音訊持續時間
-          const durationMs = await calculateAudioDuration(blob);
-
-          // 驗證持續時間是否合理
-          if (
-            durationMs >= BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION &&
-            durationMs <= BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION
-          ) {
-            // 註冊到背景腳本
-            registerBlobWithBackend(blob, blobUrl, durationMs);
-          } else {
-            logger.debug("音訊持續時間超出有效範圍，不註冊", { durationMs });
-          }
-        } else {
-          logger.debug("blob 不是語音訊息，略過處理", { blobType: blob.type });
-        }
-      }
+      // 註冊到背景腳本
+      registerBlobWithBackend(blob, blobUrl, durationMs);
     } catch (error) {
       logger.error("處理隊列中的 blob 時發生錯誤", { error });
     } finally {
@@ -109,7 +84,7 @@ export function setupBlobUrlMonitor() {
 
     try {
       // 檢查是否應該處理這個 blob
-      if (shouldProcessBlob(blob, blobUrl)) {
+      if (shouldProcessBlob(blob)) {
         // 將 blob 加入處理隊列
         BlobMonitorState.enqueueBlob(blob, blobUrl);
       }
@@ -125,12 +100,22 @@ export function setupBlobUrlMonitor() {
 /**
  * 檢查是否應該處理這個 blob
  */
-function shouldProcessBlob(blob, blobUrl) {
+function shouldProcessBlob(blob) {
   // 基本檢查 - blob 必須存在且有類型
   if (!blob || !blob.type) {
     return false;
   }
 
+  // 檢查是否已分析過此 blob
+  if (BlobMonitorState.analyzedBlobs.has(blob)) {
+    return false;
+  }
+
+  // 評估 blob 是否可能是語音訊息
+  const isLikelyVoiceMessage = isLikelyVoiceMessageBlob(blob);
+  if (!isLikelyVoiceMessage) {
+    return false;
+  }
   return true;
 }
 
