@@ -22,50 +22,48 @@ const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_MONITOR);
  * Blob 監控狀態管理
  */
 const BlobMonitorState = {
-  // 全局標記，用於識別擴充功能自己創建的 blob URL
-  // 使用 WeakMap 避免記憶體洩漏
-  selfCreatedBlobs: new WeakMap(),
+  // 處理隊列和狀態
+  processingQueue: [],
+  isProcessing: false,
 
-  // 記錄已處理的 blob URL，避免重複處理相同的 URL
-  processedUrls: new Set(),
+  // 已分析過的 blob 追蹤
+  analyzedBlobs: new WeakMap(),
 
-  // 節流控制 - 記錄最後一次處理 blob 的時間戳
-  lastProcessedTime: 0,
-
-  // 將 blob 標記為自己創建的
-  markAsSelfCreated(blob) {
-    this.selfCreatedBlobs.set(blob, true);
-    return blob;
+  // 將 blob 加入處理隊列
+  enqueueBlob(blob, blobUrl) {
+    this.processingQueue.push({ blob, blobUrl });
+    logger.debug("將 blob URL 加入處理隊列", {
+      queueLength: this.processingQueue.length,
+    });
+    this.processNextInQueue();
   },
 
-  // 檢查 blob 是否是自己創建的
-  isSelfCreated(blob) {
-    return this.selfCreatedBlobs.has(blob);
-  },
+  // 處理隊列中的下一個項目
+  async processNextInQueue() {
+    // 如果已經在處理或隊列為空，則直接返回
+    if (this.isProcessing || this.processingQueue.length === 0) {
+      return;
+    }
 
-  // 檢查 URL 是否已處理
-  isUrlProcessed(url) {
-    return this.processedUrls.has(url);
-  },
+    this.isProcessing = true;
+    const { blob, blobUrl } = this.processingQueue.shift();
 
-  // 標記 URL 為已處理
-  markUrlAsProcessed(url) {
-    this.processedUrls.add(url);
-    this.lastProcessedTime = Date.now();
-  },
+    try {
+      // 標記為已分析
+      this.analyzedBlobs.set(blob, true);
 
-  // 清理已處理的 URL
-  clearProcessedUrls() {
-    this.processedUrls.clear();
-    logger.debug("已清空處理過的 blob URL 記錄");
-  },
+      // 計算音訊持續時間
+      const durationMs = await calculateAudioDuration(blob);
 
-  // 檢查是否應該節流
-  shouldThrottle() {
-    return (
-      Date.now() - this.lastProcessedTime <
-      BLOB_MONITOR_CONSTANTS.THROTTLE_INTERVAL
-    );
+      // 註冊到背景腳本
+      registerBlobWithBackend(blob, blobUrl, durationMs);
+    } catch (error) {
+      logger.error("處理隊列中的 blob 時發生錯誤", { error });
+    } finally {
+      this.isProcessing = false;
+      // 繼續處理下一個
+      this.processNextInQueue();
+    }
   },
 };
 
@@ -81,19 +79,14 @@ export function setupBlobUrlMonitor() {
 
   // 攔截 URL.createObjectURL 方法
   URL.createObjectURL = function (blob) {
-    // 檢查是否為擴充功能自己創建的 blob
-    if (BlobMonitorState.isSelfCreated(blob)) {
-      // 如果是擴充功能自己創建的 blob，直接調用原始方法並返回
-      return originalCreateObjectURL.apply(this, arguments);
-    }
-
     // 調用原始方法獲取 blob URL
     const blobUrl = originalCreateObjectURL.apply(this, arguments);
 
     try {
       // 檢查是否應該處理這個 blob
-      if (shouldProcessBlob(blob, blobUrl)) {
-        processBlob(blob, blobUrl);
+      if (shouldProcessBlob(blob)) {
+        // 將 blob 加入處理隊列
+        BlobMonitorState.enqueueBlob(blob, blobUrl);
       }
     } catch (error) {
       logger.error("處理 blob URL 時發生錯誤", { error });
@@ -107,56 +100,30 @@ export function setupBlobUrlMonitor() {
 /**
  * 檢查是否應該處理這個 blob
  */
-function shouldProcessBlob(blob, blobUrl) {
+function shouldProcessBlob(blob) {
   // 基本檢查 - blob 必須存在且有類型
   if (!blob || !blob.type) {
     return false;
   }
-  // 已處理檢查
-  if (BlobMonitorState.isUrlProcessed(blobUrl)) {
+
+  // 檢查是否已分析過此 blob
+  if (BlobMonitorState.analyzedBlobs.has(blob)) {
     return false;
   }
-  // 擴充功能自己創建的 blob
-  if (BlobMonitorState.isSelfCreated(blob)) {
-    return false;
-  }
-  // 節流控制
-  if (BlobMonitorState.shouldThrottle()) {
+
+  // 評估 blob 是否可能是語音訊息
+  const isLikelyVoiceMessage = isLikelyVoiceMessageBlob(blob);
+  if (!isLikelyVoiceMessage) {
     return false;
   }
   return true;
 }
 
 /**
- * 處理潛在的音訊 blob
- */
-async function processBlob(blob, blobUrl) {
-  // 更新狀態
-  BlobMonitorState.markUrlAsProcessed(blobUrl);
-
-  // 評估 blob 是否可能是語音訊息
-  const isLikelyVoiceMessage = isLikelyVoiceMessageBlob(blob);
-
-  if (!isLikelyVoiceMessage) {
-    // 如果不可能是語音訊息，提前返回
-    return;
-  }
-
-  try {
-    // 計算音訊持續時間 - 使用 await 等待 Promise 解析
-    const durationMs = await calculateAudioDuration(blob);
-
-    // 將 Blob URL 與持續時間一起註冊到背景腳本
-    registerBlobWithBackend(blob, blobUrl, durationMs);
-  } catch (error) {
-    logger.error("處理音訊 blob 時發生錯誤", { error });
-  }
-}
-
-/**
  * 向背景腳本註冊 Blob
  */
 function registerBlobWithBackend(blob, blobUrl, durationMs) {
+  // 發送註冊訊息到背景腳本
   window.sendToBackground({
     action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
     blobUrl: blobUrl,
@@ -177,11 +144,11 @@ function registerBlobWithBackend(blob, blobUrl, durationMs) {
 
 /**
  * 設置定期清理
- * 定期清空已處理的 URL 集合，避免記憶體洩漏
+ * 定期清空已處理的資料，避免記憶體洩漏
  */
 function setupPeriodicCleanup() {
   setInterval(() => {
-    BlobMonitorState.clearProcessedUrls();
+    // 目前 analyzedBlobs 是弱引用，不用主動清理
   }, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
 }
 
