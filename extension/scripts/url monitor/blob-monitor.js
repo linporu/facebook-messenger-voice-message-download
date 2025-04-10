@@ -144,10 +144,12 @@ function registerBlobWithBackend(blob, blobUrl, durationMs) {
 
 /**
  * 設置定期清理
- * 定期清空已處理的 URL 集合和已註冊的識別碼，避免記憶體洩漏
+ * 定期清空已處理的資料，避免記憶體洩漏
  */
 function setupPeriodicCleanup() {
-  setInterval(() => {}, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
+  setInterval(() => {
+    // 目前 analyzedBlobs 是弱引用，不用主動清理
+  }, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
 }
 
 /**
