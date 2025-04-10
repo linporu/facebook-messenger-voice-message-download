@@ -110,7 +110,8 @@ export function setupBlobUrlMonitor() {
     try {
       // 檢查是否應該處理這個 blob
       if (shouldProcessBlob(blob, blobUrl)) {
-        processBlob(blob, blobUrl);
+        // 將 blob 加入處理隊列
+        BlobMonitorState.enqueueBlob(blob, blobUrl);
       }
     } catch (error) {
       logger.error("處理 blob URL 時發生錯誤", { error });
@@ -131,14 +132,6 @@ function shouldProcessBlob(blob, blobUrl) {
   }
 
   return true;
-}
-
-/**
- * 處理潛在的音訊 blob
- */
-function processBlob(blob, blobUrl) {
-  // 將 blob 加入處理隊列
-  BlobMonitorState.enqueueBlob(blob, blobUrl);
 }
 
 /**
