@@ -22,27 +22,12 @@ const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_MONITOR);
  * Blob 監控狀態管理
  */
 const BlobMonitorState = {
-  // 全局標記，用於識別擴充功能自己創建的 blob URL
-  // 使用 WeakMap 避免記憶體洩漏
-  selfCreatedBlobs: new WeakMap(),
-
   // 處理隊列和狀態
   processingQueue: [],
   isProcessing: false,
 
   // 已分析過的 blob 追蹤
   analyzedBlobs: new WeakMap(),
-
-  // 將 blob 標記為自己創建的
-  markAsSelfCreated(blob) {
-    this.selfCreatedBlobs.set(blob, true);
-    return blob;
-  },
-
-  // 檢查 blob 是否是自己創建的
-  isSelfCreated(blob) {
-    return this.selfCreatedBlobs.has(blob);
-  },
 
   // 將 blob 加入處理隊列
   enqueueBlob(blob, blobUrl) {
@@ -119,12 +104,6 @@ export function setupBlobUrlMonitor() {
 
   // 攔截 URL.createObjectURL 方法
   URL.createObjectURL = function (blob) {
-    // 檢查是否為擴充功能自己創建的 blob
-    if (BlobMonitorState.isSelfCreated(blob)) {
-      // 如果是擴充功能自己創建的 blob，直接調用原始方法並返回
-      return originalCreateObjectURL.apply(this, arguments);
-    }
-
     // 調用原始方法獲取 blob URL
     const blobUrl = originalCreateObjectURL.apply(this, arguments);
 
@@ -151,10 +130,6 @@ function shouldProcessBlob(blob, blobUrl) {
     return false;
   }
 
-  // 擴充功能自己創建的 blob
-  if (BlobMonitorState.isSelfCreated(blob)) {
-    return false;
-  }
   return true;
 }
 
@@ -170,11 +145,6 @@ function processBlob(blob, blobUrl) {
  * 向背景腳本註冊 Blob
  */
 function registerBlobWithBackend(blob, blobUrl, durationMs) {
-  // 生成 blob 識別碼
-  const currentTimestamp = new Date().toISOString();
-  const urlPart = blobUrl.substring(0, 50);
-  const blobIdentifier = `${urlPart}-${blob.size}-${durationMs}`;
-
   // 發送註冊訊息到背景腳本
   window.sendToBackground({
     action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
@@ -182,17 +152,15 @@ function registerBlobWithBackend(blob, blobUrl, durationMs) {
     blobType: blob.type,
     blobSize: blob.size,
     durationMs: durationMs,
-    timestamp: currentTimestamp,
-    blobIdentifier: blobIdentifier, // 加入識別碼供背景腳本進一步過濾
+    timestamp: new Date().toISOString(),
   });
 
   // 記錄詳細資訊
   logger.info("向背景腳本發送 blob url 註冊資訊", {
-    blobUrl: urlPart,
+    blobUrl: blobUrl.substring(0, 50),
     blobType: blob.type,
     blobSizeBytes: blob.size,
     durationMs: durationMs,
-    blobIdentifier: blobIdentifier,
   });
 }
 
