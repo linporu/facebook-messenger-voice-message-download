@@ -110,6 +110,78 @@ export const DOM_CONSTANTS = {
     "오디오 스크러버",
   ],
 
+  // 語言代碼到 aria-label 的映射表
+  LANGUAGE_LABELS: {
+    "zh-Hant": {
+      // 繁體中文（台灣、香港）
+      playButton: "播放",
+      audioSlider: "音訊滑桿",
+    },
+    "zh-Hans": {
+      // 簡體中文（中國）
+      playButton: "播放",
+      audioSlider: "音频时间刷",
+    },
+    es: {
+      // 西班牙語
+      playButton: "Reproducir",
+      audioSlider: "Barra de arrastre de audio",
+    },
+    en: {
+      playButton: "Play",
+      audioSlider: "Audio scrubber",
+    },
+    bn: {
+      // 孟加拉語
+      playButton: "চালান",
+      audioSlider: "অডিও স্ক্রাবার",
+    },
+    hi: {
+      // 北印度語
+      playButton: "चलाएँ",
+      audioSlider: "ऑडियो स्क्रबर",
+    },
+    ar: {
+      // 阿拉伯語
+      playButton: "تشغيل",
+      audioSlider: "شريط تمرير المقطع الصوتي",
+    },
+    pt: {
+      // 葡萄牙語（包含巴西和葡萄牙）
+      playButton: "Reproduzir",
+      audioSlider: ["Barra seletora de áudio", "Barra de duração do áudio"],
+    },
+    ru: {
+      playButton: "Воспроизвести",
+      audioSlider: "Ползунок аудио",
+    },
+    ja: {
+      // 日語
+      playButton: "再生",
+      audioSlider: "音声スライダー",
+    },
+    de: {
+      // 德語
+      playButton: "Abspielen",
+      audioSlider: "Schieberegler für Audio",
+    },
+    fr: {
+      // 法語
+      playButton: "Lire",
+      audioSlider: "Curseur audio",
+    },
+    jv: {
+      // 爪哇語
+      playButton: "Lakoke",
+      audioSlider: "Scrubber Audio",
+    },
+    ko: {
+      // 韓語
+      playButton: "재생",
+      audioSlider: "오디오 스크러버",
+    },
+  },
+
   // 語音訊息元素的 data 屬性
   VOICE_MESSAGE_ELEMENT_DATA_ATTR: "data-voice-message-element",
 
