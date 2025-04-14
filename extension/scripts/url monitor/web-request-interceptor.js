@@ -30,46 +30,54 @@ const logger = Logger.createModuleLogger(MODULE_NAMES.WEB_REQUEST);
 // ================================================
 
 /**
- * 檢查 URL 是否可能包含語音訊息
- * @param {string} url - 要檢查的 URL
- * @returns {boolean} - 是否可能是語音訊息
- */
-function isPotentialVoiceMessageUrl(url) {
-  if (!url) return false;
-
-  // 檢查 URL 是否包含任何已知音訊關鍵字
-  return (
-    WEB_REQUEST_CONSTANTS.AUDIO_KEYWORDS.some((keyword) =>
-      url.includes(keyword)
-    ) ||
-    // 檢查是否來自已知的 Facebook 的安全瀏覽擴展域名
-    SUPPORTED_SITES.CDN_PATTERNS.some((pattern) => {
-      const domain = pattern.replace("*://*.", "").replace("/*", "");
-      return url.includes(domain);
-    })
-  );
-}
-
-/**
- * 判斷請求是否為有效的語音訊息候選項
+ * 判斷請求是否為語音訊息
  * @param {string} url - 請求 URL
  * @param {string} method - HTTP 方法
  * @param {number} statusCode - HTTP 狀態碼
- * @returns {boolean} - 是否為有效的候選項
+ * @param {Object} metadata - 選擇性，請求的元數據
+ * @returns {boolean} - 是否為語音訊息
  */
-function isVoiceMessageCandidate(url, method, statusCode) {
-  // 快速篩選
-  if (!isPotentialVoiceMessageUrl(url)) return false;
+function isVoiceMessage(url, method, statusCode, metadata = null) {
+  // 1. 基本檢查：URL 存在、為 GET 請求、狀態碼表示成功
+  if (!url || method !== "GET") return false;
 
-  // 只處理 GET 請求
-  if (method !== "GET") return false;
-
-  // 如果提供了狀態碼，檢查是否為成功狀態
   if (
     statusCode &&
     !WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES.includes(statusCode)
   ) {
     return false;
+  }
+
+  // 2. URL 模式檢查
+  const hasAudioKeyword = WEB_REQUEST_CONSTANTS.AUDIO_KEYWORDS.some((keyword) =>
+    url.includes(keyword)
+  );
+
+  const isFromKnownCdn = SUPPORTED_SITES.CDN_PATTERNS.some((pattern) => {
+    const domain = pattern.replace("*://*.", "").replace("/*", "");
+    return url.includes(domain);
+  });
+
+  if (!hasAudioKeyword && !isFromKnownCdn) return false;
+
+  // 3. 若有提供元數據，進行額外檢查
+  if (metadata) {
+    // 檢查內容類型是否為音訊
+    if (metadata.contentType && !isLikelyAudioFile(metadata.contentType, url)) {
+      return false;
+    }
+
+    // 檢查檔案大小是否在合理範圍內
+    if (metadata.contentLength) {
+      const fileSizeBytes = parseInt(metadata.contentLength, 10);
+      if (
+        !isNaN(fileSizeBytes) &&
+        (fileSizeBytes < BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE ||
+          fileSizeBytes > BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE)
+      ) {
+        return false;
+      }
+    }
   }
 
   return true;
@@ -243,8 +251,11 @@ function handleRequest(voiceMessages, details) {
   try {
     const { url, method, statusCode, responseHeaders } = details;
 
-    // 判斷是否為有效的語音訊息候選項
-    if (!isVoiceMessageCandidate(url, method, statusCode)) {
+    // 提取基本標頭資訊
+    const basicMetadata = extractBasicHeaderInfo(responseHeaders);
+
+    // 判斷是否為語音訊息
+    if (!isVoiceMessage(url, method, statusCode, basicMetadata)) {
       return;
     }
 
@@ -255,7 +266,7 @@ function handleRequest(voiceMessages, details) {
       method: method,
     });
 
-    // 提取音訊元數據
+    // 完成元數據提取（增加持續時間等資訊）
     const metadata = extractAudioMetadata(responseHeaders, url);
 
     // 處理和註冊
