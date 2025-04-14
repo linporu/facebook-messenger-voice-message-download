@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "VoiLoad: Facebook Messenger 語音訊息一鍵下載",
-  "description": "一鍵下載 Facebook / Messenger 語音訊息",
-  "version": "0.1.0",
+  "name": "VoiLoad - voice message downloader of Facebook / Messenger",
+  "description": "一鍵下載 Facebook 與 Messenger 上的語音訊息",
+  "version": "0.2.0",
   "author": "linpoju.richard@gmail.com",
 
   "permissions": ["activeTab", "contextMenus", "downloads", "webRequest"],
