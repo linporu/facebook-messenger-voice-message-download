@@ -26,10 +26,8 @@ import {
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.WEB_REQUEST);
 
-// 使用 constants.js 中定義的常數
-
 // ================================================
-// 公用輔助函數
+// URL 檢測函數
 // ================================================
 
 /**
@@ -54,12 +52,40 @@ function isPotentialVoiceMessageUrl(url) {
 }
 
 /**
- * 從請求標頭中提取音訊相關元數據
- * @param {Array} responseHeaders - 回應標頭陣列
+ * 判斷請求是否為有效的語音訊息候選項
  * @param {string} url - 請求 URL
- * @returns {Object} - 提取的元數據
+ * @param {string} method - HTTP 方法
+ * @param {number} statusCode - HTTP 狀態碼
+ * @returns {boolean} - 是否為有效的候選項
  */
-function extractAudioMetadata(responseHeaders, url) {
+function isVoiceMessageCandidate(url, method, statusCode) {
+  // 快速篩選
+  if (!isPotentialVoiceMessageUrl(url)) return false;
+
+  // 只處理 GET 請求
+  if (method !== "GET") return false;
+
+  // 如果提供了狀態碼，檢查是否為成功狀態
+  if (
+    statusCode &&
+    !WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES.includes(statusCode)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+// ================================================
+// 元數據提取函數
+// ================================================
+
+/**
+ * 從請求標頭中提取基本資訊
+ * @param {Array} responseHeaders - 回應標頭陣列
+ * @returns {Object} - 提取的基本元數據
+ */
+function extractBasicHeaderInfo(responseHeaders) {
   const metadata = {
     durationMs: null,
     lastModified: null,
@@ -68,69 +94,107 @@ function extractAudioMetadata(responseHeaders, url) {
     contentDisposition: null,
   };
 
+  if (!responseHeaders) return metadata;
+
   // 從標頭中提取資訊
-  if (responseHeaders) {
-    for (const header of responseHeaders) {
-      const headerName = header.name.toLowerCase();
-      const headerValue = header.value;
+  for (const header of responseHeaders) {
+    const headerName = header.name.toLowerCase();
+    const headerValue = header.value;
 
-      switch (headerName) {
-        case "content-disposition":
-          metadata.contentDisposition = headerValue;
-          metadata.durationMs =
-            extractDurationFromContentDisposition(headerValue);
-          break;
-        case "last-modified":
-          metadata.lastModified = headerValue;
-          break;
-        case "content-type":
-          metadata.contentType = headerValue;
-          break;
-        case "content-length":
-          metadata.contentLength = headerValue;
-          break;
-      }
-    }
-  }
-
-  // 如果無法從標頭中提取持續時間，嘗試從 URL 提取
-  if (!metadata.durationMs) {
-    metadata.durationMs = extractDurationFromUrl(url);
-  }
-
-  // 如果仍然無法提取持續時間，但有檔案大小，則估計持續時間
-  if (
-    !metadata.durationMs &&
-    metadata.contentLength &&
-    isLikelyAudioFile(metadata.contentType, url)
-  ) {
-    const fileSizeBytes = parseInt(metadata.contentLength, 10);
-    if (!isNaN(fileSizeBytes)) {
-      // 檢查檔案大小是否在合理範圍內
-      if (
-        fileSizeBytes >= BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE &&
-        fileSizeBytes <= BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE
-      ) {
-        // 估計持續時間：檔案大小（位元）/ 比特率（每秒位元）
-        metadata.durationMs = Math.round(
-          ((fileSizeBytes * 8) / (WEB_REQUEST_CONSTANTS.AVERAGE_AUDIO_BITRATE * 1024)) * 1000
-        );
-        metadata.isDurationEstimated = true;
-
-        // 確保持續時間在有效範圍內
-        if (metadata.durationMs < BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION) {
-          metadata.durationMs = BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION;
-        } else if (
-          metadata.durationMs > BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION
-        ) {
-          metadata.durationMs = BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION;
-        }
-      }
+    switch (headerName) {
+      case "content-disposition":
+        metadata.contentDisposition = headerValue;
+        break;
+      case "last-modified":
+        metadata.lastModified = headerValue;
+        break;
+      case "content-type":
+        metadata.contentType = headerValue;
+        break;
+      case "content-length":
+        metadata.contentLength = headerValue;
+        break;
     }
   }
 
   return metadata;
 }
+
+/**
+ * 嘗試獲取音訊持續時間
+ * @param {Object} metadata - 基本元數據
+ * @param {string} url - 檔案 URL
+ * @returns {number|null} - 持續時間（毫秒）或 null
+ */
+function getDuration(metadata, url) {
+  // 1. 嘗試從 content-disposition 提取
+  if (metadata.contentDisposition) {
+    const duration = extractDurationFromContentDisposition(
+      metadata.contentDisposition
+    );
+    if (duration) return duration;
+  }
+
+  // 2. 嘗試從 URL 提取
+  const urlDuration = extractDurationFromUrl(url);
+  if (urlDuration) return urlDuration;
+
+  // 3. 嘗試從檔案大小估算
+  if (metadata.contentLength && isLikelyAudioFile(metadata.contentType, url)) {
+    const fileSizeBytes = parseInt(metadata.contentLength, 10);
+    if (isNaN(fileSizeBytes)) return null;
+
+    // 檢查檔案大小是否在合理範圍內
+    if (
+      fileSizeBytes < BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE ||
+      fileSizeBytes > BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE
+    ) {
+      return null;
+    }
+
+    // 估計持續時間：檔案大小（位元）/ 比特率（每秒位元）
+    let estimatedDuration = Math.round(
+      ((fileSizeBytes * 8) /
+        (WEB_REQUEST_CONSTANTS.AVERAGE_AUDIO_BITRATE * 1024)) *
+        1000
+    );
+
+    // 確保持續時間在有效範圍內
+    estimatedDuration = Math.max(
+      estimatedDuration,
+      BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION
+    );
+    estimatedDuration = Math.min(
+      estimatedDuration,
+      BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION
+    );
+
+    metadata.isDurationEstimated = true;
+    return estimatedDuration;
+  }
+
+  return null;
+}
+
+/**
+ * 從請求標頭中提取音訊相關元數據
+ * @param {Array} responseHeaders - 回應標頭陣列
+ * @param {string} url - 請求 URL
+ * @returns {Object} - 提取的元數據
+ */
+function extractAudioMetadata(responseHeaders, url) {
+  // 提取基本標頭資訊
+  const metadata = extractBasicHeaderInfo(responseHeaders);
+
+  // 嘗試獲取持續時間
+  metadata.durationMs = getDuration(metadata, url);
+
+  return metadata;
+}
+
+// ================================================
+// 註冊與處理函數
+// ================================================
 
 /**
  * 處理和註冊音訊檔案
@@ -172,31 +236,25 @@ function processAndRegisterAudio(voiceMessages, metadata, url) {
 // ================================================
 
 /**
- * 處理已完成的請求
+ * 處理網路請求
  * @param {Object} voiceMessages - 語音訊息資料存儲
  * @param {Object} details - 請求詳情
  */
-function handleCompletedRequest(voiceMessages, details) {
+function handleRequest(voiceMessages, details) {
   try {
-    const { url, method, statusCode, responseHeaders, type } = details;
+    const { url, method, statusCode, responseHeaders } = details;
 
-    // 快速過濾非相關請求
-    if (!isPotentialVoiceMessageUrl(url)) {
+    // 判斷是否為有效的語音訊息候選項
+    if (!isVoiceMessageCandidate(url, method, statusCode)) {
       return;
     }
 
     logger.debug("偵測到潛在語音訊息請求", {
       url: url.substring(0, 100) + "...",
-      type: type,
+      type: details.type,
       statusCode: statusCode,
       method: method,
     });
-
-    // 只處理成功的 GET 請求
-    if (method !== "GET" || !WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES.includes(statusCode)) {
-      logger.debug("跳過非 GET 或非成功狀態的請求", { method, statusCode });
-      return;
-    }
 
     // 提取音訊元數據
     const metadata = extractAudioMetadata(responseHeaders, url);
@@ -211,55 +269,22 @@ function handleCompletedRequest(voiceMessages, details) {
   }
 }
 
-/**
- * 處理接收到的標頭
- * @param {Object} voiceMessages - 語音訊息資料存儲
- * @param {Object} details - 請求詳情
- */
-function handleHeadersReceived(voiceMessages, details) {
-  try {
-    const { url, responseHeaders } = details;
-
-    // 快速過濾非相關請求
-    if (!isPotentialVoiceMessageUrl(url)) {
-      return;
-    }
-
-    // 提取音訊元數據
-    const metadata = extractAudioMetadata(responseHeaders, url);
-
-    // 只記錄確定是語音訊息的項目
-    if (
-      metadata.contentDisposition &&
-      metadata.contentDisposition.includes("audioclip")
-    ) {
-      logger.debug("偵測到語音訊息檔案標頭", {
-        url: url.substring(0, 100) + "...",
-        contentType: metadata.contentType,
-        contentLength: metadata.contentLength,
-        durationMs: metadata.durationMs,
-        isDurationEstimated: metadata.isDurationEstimated || false,
-      });
-    }
-  } catch (error) {
-    logger.error("處理標頭時發生錯誤", {
-      error: error.message,
-      stack: error.stack,
-    });
-  }
-}
+// ================================================
+// 訊息處理函數
+// ================================================
 
 /**
  * 處理 blob URL 訊息
  * @param {Object} voiceMessages - 語音訊息資料存儲
  * @param {Object} message - 訊息物件
  * @param {Object} sender - 發送者資訊
+ * @returns {Object} - 處理結果
  */
 function handleBlobUrlMessage(voiceMessages, message, sender) {
   try {
     const { blobUrl, blobType, blobSize, timestamp, durationMs } = message;
 
-    // 檢查是否為音訊/視頻 blob，使用 BLOB_MONITOR_CONSTANTS 定義的類型
+    // 檢查是否為音訊/視頻 blob
     const isAudioOrVideo =
       blobType &&
       BLOB_MONITOR_CONSTANTS.POSSIBLE_AUDIO_TYPES.some((type) =>
@@ -268,7 +293,7 @@ function handleBlobUrlMessage(voiceMessages, message, sender) {
 
     if (!isAudioOrVideo) {
       logger.debug("跳過非音訊/視頻的 blob", { blobType });
-      return;
+      return { success: false, message: "非音訊/視頻的 blob" };
     }
 
     logger.debug("偵測到音訊相關的 blob URL", {
@@ -289,60 +314,72 @@ function handleBlobUrlMessage(voiceMessages, message, sender) {
     logger.info(
       "注意：Blob URL 已存儲，但不會自動下載。用戶需要右鍵點擊才會下載。"
     );
+
+    return { success: true, message: "Blob URL 已接收", id };
   } catch (error) {
     logger.error("處理 blob URL 訊息時發生錯誤", {
       error: error.message,
       stack: error.stack,
     });
+    return { success: false, error: error.message };
   }
 }
 
-// ================================================
-// 訊息處理器
-// ================================================
+/**
+ * 處理內容腳本初始化訊息
+ * @param {Object} message - 訊息物件
+ * @param {Object} sender - 發送者資訊
+ * @returns {Object} - 處理結果
+ */
+function handleContentScriptInit(message, sender) {
+  logger.debug("收到內容腳本初始化訊息", {
+    url: message.url,
+    tabId: sender.tab?.id,
+  });
+  return { success: true };
+}
 
 /**
- * 設置訊息監聽器，處理內容腳本的訊息
+ * 統一訊息處理路由
  * @param {Object} voiceMessages - 語音訊息資料存儲
+ * @param {Object} message - 訊息物件
+ * @param {Object} sender - 發送者資訊
+ * @param {Function} sendResponse - 回應函數
  */
-function setupMessageListeners(voiceMessages) {
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    try {
-      switch (message.action) {
-        case "contentScriptInitialized":
-          logger.debug("收到內容腳本初始化訊息", {
-            url: message.url,
-            tabId: sender.tab?.id,
-          });
-          sendResponse({ success: true });
-          break;
+function handleMessage(voiceMessages, message, sender, sendResponse) {
+  try {
+    let response;
 
-        case MESSAGE_ACTIONS.BLOB_DETECTED:
-          logger.debug("收到 blob URL 偵測訊息", {
-            blobType: message.blobType,
-            blobSize: message.blobSize,
-            timestamp: message.timestamp,
-            tabId: sender.tab?.id,
-          });
+    switch (message.action) {
+      case "contentScriptInitialized":
+        response = handleContentScriptInit(message, sender);
+        break;
 
-          handleBlobUrlMessage(voiceMessages, message, sender);
-          sendResponse({ success: true, message: "Blob URL 已接收" });
-          break;
+      case MESSAGE_ACTIONS.BLOB_DETECTED:
+        logger.debug("收到 blob URL 偵測訊息", {
+          blobType: message.blobType,
+          blobSize: message.blobSize,
+          timestamp: message.timestamp,
+          tabId: sender.tab?.id,
+        });
 
-        default:
-          // 忽略未知訊息
-          break;
-      }
-    } catch (error) {
-      logger.error("處理訊息時發生錯誤", {
-        action: message.action,
-        error: error.message,
-      });
-      sendResponse({ success: false, error: error.message });
+        response = handleBlobUrlMessage(voiceMessages, message, sender);
+        break;
+
+      default:
+        // 忽略未知訊息
+        response = { success: false, error: "未知的訊息類型" };
+        break;
     }
 
-    return true; // 保持訊息通道開啟以進行非同步回應
-  });
+    sendResponse(response);
+  } catch (error) {
+    logger.error("處理訊息時發生錯誤", {
+      action: message.action,
+      error: error.message,
+    });
+    sendResponse({ success: false, error: error.message });
+  }
 }
 
 // ================================================
@@ -351,48 +388,33 @@ function setupMessageListeners(voiceMessages) {
 
 /**
  * 設置網路請求監聽器
+ * @param {Object} voiceMessages - 語音訊息資料存儲
  */
 function setupWebRequestListeners(voiceMessages) {
-  // 監聽完成的請求
-  chrome.webRequest.onCompleted.addListener(
-    (details) => handleCompletedRequest(voiceMessages, details),
-    { urls: VOICE_MESSAGE_URL_PATTERNS },
-    ["responseHeaders"]
-  );
-
-  // 監聽請求頭
+  // 監聽已接收標頭的請求 - 主要用於早期識別
   chrome.webRequest.onHeadersReceived.addListener(
-    (details) => handleHeadersReceived(voiceMessages, details),
+    (details) => handleRequest(voiceMessages, details),
     { urls: VOICE_MESSAGE_URL_PATTERNS },
     ["responseHeaders"]
   );
 
-  // 監聽所有請求（用於早期偵測）
-  chrome.webRequest.onBeforeRequest.addListener(
-    (details) => {
-      // 只處理 GET 請求
-      if (details.method === "GET") {
-        const url = details.url;
-
-        // 記錄可能的語音訊息請求
-        if (isPotentialVoiceMessageUrl(url)) {
-          logger.debug("提前偵測到可能的語音訊息請求", {
-            url: url.substring(0, 100) + "...",
-            type: details.type,
-          });
-        }
-      }
-      return { cancel: false };
-    },
-    { urls: VOICE_MESSAGE_URL_PATTERNS }
-  );
-
-  // 監聽請求頭發送（最小化處理，僅保留功能）
-  chrome.webRequest.onSendHeaders.addListener(
-    (details) => ({ requestHeaders: details.requestHeaders }),
+  // 監聽完成的請求 - 確保所有數據都已接收
+  chrome.webRequest.onCompleted.addListener(
+    (details) => handleRequest(voiceMessages, details),
     { urls: VOICE_MESSAGE_URL_PATTERNS },
-    ["requestHeaders"]
+    ["responseHeaders"]
   );
+}
+
+/**
+ * 設置訊息監聽器
+ * @param {Object} voiceMessages - 語音訊息資料存儲
+ */
+function setupMessageListeners(voiceMessages) {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    handleMessage(voiceMessages, message, sender, sendResponse);
+    return true; // 保持訊息通道開啟以進行非同步回應
+  });
 }
 
 // ================================================
@@ -406,10 +428,6 @@ function setupWebRequestListeners(voiceMessages) {
 export function initWebRequestInterceptor(voiceMessages) {
   try {
     logger.debug("初始化 webRequest 攔截器");
-
-    // 記錄初始化時間，用於調試
-    const initTime = new Date().toISOString();
-    logger.debug("攔截器初始化時間", { time: initTime });
 
     // 檢查 WebRequest API 是否可用
     if (!chrome || !chrome.webRequest) {
@@ -439,7 +457,8 @@ export function initWebRequestInterceptor(voiceMessages) {
  * @param {Object} voiceMessages - 語音訊息資料存儲
  * @param {Object} message - 訊息物件
  * @param {Object} sender - 發送者資訊
+ * @returns {Object} - 處理結果
  */
 export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
-  handleBlobUrlMessage(voiceMessages, message, sender);
+  return handleBlobUrlMessage(voiceMessages, message, sender);
 }
