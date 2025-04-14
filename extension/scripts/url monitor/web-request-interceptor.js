@@ -280,56 +280,6 @@ function handleRequest(voiceMessages, details) {
 }
 
 // ================================================
-// 訊息處理函數
-// ================================================
-
-/**
- * 處理內容腳本初始化訊息
- * @param {Object} message - 訊息物件
- * @param {Object} sender - 發送者資訊
- * @returns {Object} - 處理結果
- */
-function handleContentScriptInit(message, sender) {
-  logger.debug("收到內容腳本初始化訊息", {
-    url: message.url,
-    tabId: sender.tab?.id,
-  });
-  return { success: true };
-}
-
-/**
- * 統一訊息處理路由
- * @param {Object} voiceMessages - 語音訊息資料存儲
- * @param {Object} message - 訊息物件
- * @param {Object} sender - 發送者資訊
- * @param {Function} sendResponse - 回應函數
- */
-function handleMessage(voiceMessages, message, sender, sendResponse) {
-  try {
-    let response;
-
-    switch (message.action) {
-      case "contentScriptInitialized":
-        response = handleContentScriptInit(message, sender);
-        break;
-
-      default:
-        // 忽略未知訊息
-        response = { success: false, error: "未知的訊息類型" };
-        break;
-    }
-
-    sendResponse(response);
-  } catch (error) {
-    logger.error("處理訊息時發生錯誤", {
-      action: message.action,
-      error: error.message,
-    });
-    sendResponse({ success: false, error: error.message });
-  }
-}
-
-// ================================================
 // 監聽器初始化
 // ================================================
 
@@ -353,17 +303,6 @@ function setupWebRequestListeners(voiceMessages) {
   );
 }
 
-/**
- * 設置訊息監聽器
- * @param {Object} voiceMessages - 語音訊息資料存儲
- */
-function setupMessageListeners(voiceMessages) {
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    handleMessage(voiceMessages, message, sender, sendResponse);
-    return true; // 保持訊息通道開啟以進行非同步回應
-  });
-}
-
 // ================================================
 // 公開函數
 // ================================================
@@ -384,9 +323,6 @@ export function initWebRequestInterceptor(voiceMessages) {
 
     // 設置網路請求監聽器
     setupWebRequestListeners(voiceMessages);
-
-    // 設置訊息監聽器
-    setupMessageListeners(voiceMessages);
 
     logger.info("webRequest 攔截器已初始化", {
       patterns: VOICE_MESSAGE_URL_PATTERNS,
