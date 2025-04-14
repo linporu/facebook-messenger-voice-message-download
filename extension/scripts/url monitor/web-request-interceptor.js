@@ -14,7 +14,6 @@ import {
   SUPPORTED_SITES,
   BLOB_MONITOR_CONSTANTS,
   MODULE_NAMES,
-  MESSAGE_ACTIONS,
   WEB_REQUEST_CONSTANTS,
   VOICE_MESSAGE_URL_PATTERNS,
 } from "../utils/constants.js";
@@ -274,58 +273,6 @@ function handleRequest(voiceMessages, details) {
 // ================================================
 
 /**
- * 處理 blob URL 訊息
- * @param {Object} voiceMessages - 語音訊息資料存儲
- * @param {Object} message - 訊息物件
- * @param {Object} sender - 發送者資訊
- * @returns {Object} - 處理結果
- */
-function handleBlobUrlMessage(voiceMessages, message, sender) {
-  try {
-    const { blobUrl, blobType, blobSize, timestamp, durationMs } = message;
-
-    // 檢查是否為音訊/視頻 blob
-    const isAudioOrVideo =
-      blobType &&
-      BLOB_MONITOR_CONSTANTS.POSSIBLE_AUDIO_TYPES.some((type) =>
-        blobType.includes(type)
-      );
-
-    if (!isAudioOrVideo) {
-      logger.debug("跳過非音訊/視頻的 blob", { blobType });
-      return { success: false, message: "非音訊/視頻的 blob" };
-    }
-
-    logger.debug("偵測到音訊相關的 blob URL", {
-      blobType,
-      blobSize,
-      tabId: sender.tab?.id,
-    });
-
-    // 註冊 Blob URL
-    const id = registerDownloadUrl(
-      voiceMessages,
-      durationMs,
-      blobUrl,
-      null // 沒有 lastModified 資訊
-    );
-
-    logger.debug("成功註冊 Blob URL", { id, durationMs });
-    logger.info(
-      "注意：Blob URL 已存儲，但不會自動下載。用戶需要右鍵點擊才會下載。"
-    );
-
-    return { success: true, message: "Blob URL 已接收", id };
-  } catch (error) {
-    logger.error("處理 blob URL 訊息時發生錯誤", {
-      error: error.message,
-      stack: error.stack,
-    });
-    return { success: false, error: error.message };
-  }
-}
-
-/**
  * 處理內容腳本初始化訊息
  * @param {Object} message - 訊息物件
  * @param {Object} sender - 發送者資訊
@@ -353,17 +300,6 @@ function handleMessage(voiceMessages, message, sender, sendResponse) {
     switch (message.action) {
       case "contentScriptInitialized":
         response = handleContentScriptInit(message, sender);
-        break;
-
-      case MESSAGE_ACTIONS.BLOB_DETECTED:
-        logger.debug("收到 blob URL 偵測訊息", {
-          blobType: message.blobType,
-          blobSize: message.blobSize,
-          timestamp: message.timestamp,
-          tabId: sender.tab?.id,
-        });
-
-        response = handleBlobUrlMessage(voiceMessages, message, sender);
         break;
 
       default:
@@ -450,15 +386,4 @@ export function initWebRequestInterceptor(voiceMessages) {
       stack: error.stack,
     });
   }
-}
-
-/**
- * 處理 blob URL 訊息 - 向後兼容的公開函數
- * @param {Object} voiceMessages - 語音訊息資料存儲
- * @param {Object} message - 訊息物件
- * @param {Object} sender - 發送者資訊
- * @returns {Object} - 處理結果
- */
-export function setupBlobUrlMessageListener(voiceMessages, message, sender) {
-  return handleBlobUrlMessage(voiceMessages, message, sender);
 }
