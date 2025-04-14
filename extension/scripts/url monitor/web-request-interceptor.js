@@ -18,12 +18,104 @@ import {
   VOICE_MESSAGE_URL_PATTERNS,
 } from "../utils/constants.js";
 
+const logger = Logger.createModuleLogger(MODULE_NAMES.WEB_REQUEST);
+
 // ================================================
-// 常數與配置
+// 公開函數
 // ================================================
 
-// 創建模組特定的日誌記錄器
-const logger = Logger.createModuleLogger(MODULE_NAMES.WEB_REQUEST);
+/**
+ * 初始化 webRequest 攔截器
+ * @param {Object} voiceMessages - 語音訊息資料存儲
+ */
+export function initWebRequestInterceptor(voiceMessages) {
+  try {
+    logger.debug("初始化 webRequest 攔截器");
+
+    // 檢查 WebRequest API 是否可用
+    if (!chrome || !chrome.webRequest) {
+      logger.error("chrome.webRequest API 不可用");
+      return;
+    }
+
+    // 設置網路請求監聽器
+    setupWebRequestListeners(voiceMessages);
+
+    logger.info("webRequest 攔截器已初始化", {
+      patterns: VOICE_MESSAGE_URL_PATTERNS,
+    });
+  } catch (error) {
+    logger.error("初始化 webRequest 攔截器時發生錯誤", {
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+}
+
+// ================================================
+// 監聽器初始化
+// ================================================
+
+/**
+ * 設置網路請求監聽器
+ * @param {Object} voiceMessages - 語音訊息資料存儲
+ */
+function setupWebRequestListeners(voiceMessages) {
+  // 監聽已接收標頭的請求 - 主要用於早期識別
+  chrome.webRequest.onHeadersReceived.addListener(
+    (details) => handleRequest(voiceMessages, details),
+    { urls: VOICE_MESSAGE_URL_PATTERNS },
+    ["responseHeaders"]
+  );
+
+  // 監聽完成的請求 - 確保所有數據都已接收
+  chrome.webRequest.onCompleted.addListener(
+    (details) => handleRequest(voiceMessages, details),
+    { urls: VOICE_MESSAGE_URL_PATTERNS },
+    ["responseHeaders"]
+  );
+}
+
+// ================================================
+// 請求處理函數
+// ================================================
+
+/**
+ * 處理網路請求
+ * @param {Object} voiceMessages - 語音訊息資料存儲
+ * @param {Object} details - 請求詳情
+ */
+function handleRequest(voiceMessages, details) {
+  try {
+    const { url, method, statusCode, responseHeaders } = details;
+
+    // 提取基本標頭資訊
+    const basicMetadata = extractBasicHeaderInfo(responseHeaders);
+
+    // 判斷是否為語音訊息
+    if (!isVoiceMessage(url, method, statusCode, basicMetadata)) {
+      return;
+    }
+
+    logger.debug("偵測到潛在語音訊息請求", {
+      url: url.substring(0, 100) + "...",
+      type: details.type,
+      statusCode: statusCode,
+      method: method,
+    });
+
+    // 完成元數據提取（增加持續時間等資訊）
+    const metadata = extractAudioMetadata(responseHeaders, url);
+
+    // 處理和註冊
+    processAndRegisterAudio(voiceMessages, metadata, url);
+  } catch (error) {
+    logger.error("處理請求時發生錯誤", {
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+}
 
 // ================================================
 // URL 檢測函數
@@ -236,101 +328,4 @@ function processAndRegisterAudio(voiceMessages, metadata, url) {
 
   logger.debug("註冊下載 URL 完成", { id });
   return id;
-}
-
-// ================================================
-// 請求處理函數
-// ================================================
-
-/**
- * 處理網路請求
- * @param {Object} voiceMessages - 語音訊息資料存儲
- * @param {Object} details - 請求詳情
- */
-function handleRequest(voiceMessages, details) {
-  try {
-    const { url, method, statusCode, responseHeaders } = details;
-
-    // 提取基本標頭資訊
-    const basicMetadata = extractBasicHeaderInfo(responseHeaders);
-
-    // 判斷是否為語音訊息
-    if (!isVoiceMessage(url, method, statusCode, basicMetadata)) {
-      return;
-    }
-
-    logger.debug("偵測到潛在語音訊息請求", {
-      url: url.substring(0, 100) + "...",
-      type: details.type,
-      statusCode: statusCode,
-      method: method,
-    });
-
-    // 完成元數據提取（增加持續時間等資訊）
-    const metadata = extractAudioMetadata(responseHeaders, url);
-
-    // 處理和註冊
-    processAndRegisterAudio(voiceMessages, metadata, url);
-  } catch (error) {
-    logger.error("處理請求時發生錯誤", {
-      error: error.message,
-      stack: error.stack,
-    });
-  }
-}
-
-// ================================================
-// 監聽器初始化
-// ================================================
-
-/**
- * 設置網路請求監聽器
- * @param {Object} voiceMessages - 語音訊息資料存儲
- */
-function setupWebRequestListeners(voiceMessages) {
-  // 監聽已接收標頭的請求 - 主要用於早期識別
-  chrome.webRequest.onHeadersReceived.addListener(
-    (details) => handleRequest(voiceMessages, details),
-    { urls: VOICE_MESSAGE_URL_PATTERNS },
-    ["responseHeaders"]
-  );
-
-  // 監聽完成的請求 - 確保所有數據都已接收
-  chrome.webRequest.onCompleted.addListener(
-    (details) => handleRequest(voiceMessages, details),
-    { urls: VOICE_MESSAGE_URL_PATTERNS },
-    ["responseHeaders"]
-  );
-}
-
-// ================================================
-// 公開函數
-// ================================================
-
-/**
- * 初始化 webRequest 攔截器
- * @param {Object} voiceMessages - 語音訊息資料存儲
- */
-export function initWebRequestInterceptor(voiceMessages) {
-  try {
-    logger.debug("初始化 webRequest 攔截器");
-
-    // 檢查 WebRequest API 是否可用
-    if (!chrome || !chrome.webRequest) {
-      logger.error("chrome.webRequest API 不可用");
-      return;
-    }
-
-    // 設置網路請求監聽器
-    setupWebRequestListeners(voiceMessages);
-
-    logger.info("webRequest 攔截器已初始化", {
-      patterns: VOICE_MESSAGE_URL_PATTERNS,
-    });
-  } catch (error) {
-    logger.error("初始化 webRequest 攔截器時發生錯誤", {
-      error: error.message,
-      stack: error.stack,
-    });
-  }
 }
