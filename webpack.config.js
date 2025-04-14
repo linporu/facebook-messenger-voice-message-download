@@ -3,7 +3,6 @@ const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = {
   mode: "development", // 開發模式，可以改為 'production' 用於生產環境
-  devtool: "source-map", // 生成 source maps 以便於調試
 
   entry: {
     // 背景腳本
