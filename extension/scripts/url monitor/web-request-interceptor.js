@@ -10,48 +10,23 @@ import {
 } from "../audio/extractDurationFunctions.js";
 import { registerDownloadUrl } from "../background/data-store.js";
 import { Logger } from "../utils/logger.js";
+import {
+  SUPPORTED_SITES,
+  BLOB_MONITOR_CONSTANTS,
+  MODULE_NAMES,
+  MESSAGE_ACTIONS,
+  WEB_REQUEST_CONSTANTS,
+  VOICE_MESSAGE_URL_PATTERNS,
+} from "../utils/constants.js";
 
 // ================================================
 // 常數與配置
 // ================================================
 
 // 創建模組特定的日誌記錄器
-const logger = Logger.createModuleLogger("web-request-interceptor");
+const logger = Logger.createModuleLogger(MODULE_NAMES.WEB_REQUEST);
 
-// 語音訊息 URL 的匹配模式
-const VOICE_MESSAGE_URL_PATTERNS = [
-  "*://*.facebook.com/*",
-  "*://*.fbcdn.net/*",
-  "*://*.messenger.com/*",
-  "*://*.cdninstagram.com/*", // Instagram CDN
-  "*://*.fbsbx.com/*", // Facebook 安全瀏覽擴展域名
-];
-
-// 可能的音訊檔案關鍵字
-const AUDIO_KEYWORDS = [
-  ".mp4",
-  ".mp3",
-  ".aac",
-  ".m4a",
-  "/audioclip-",
-  "audio",
-  "voice",
-  "sound",
-  "/v/t",
-  "/o1/v/t2/f2/m69/",
-  "/o1/v/t62/", // 新的 Facebook 語音訊息格式
-  "/o2/v/", // 另一種可能的格式
-  "attachment",
-  "clip",
-  "message",
-  "media",
-];
-
-// 平均音訊比特率（kbps）- 用於估計持續時間
-const AVERAGE_AUDIO_BITRATE = 32; // 32kbps
-
-// 成功的 HTTP 狀態碼
-const SUCCESS_STATUS_CODES = [200, 206]; // OK, Partial Content
+// 使用 constants.js 中定義的常數
 
 // ================================================
 // 公用輔助函數
@@ -65,12 +40,16 @@ const SUCCESS_STATUS_CODES = [200, 206]; // OK, Partial Content
 function isPotentialVoiceMessageUrl(url) {
   if (!url) return false;
 
+  // 檢查 URL 是否包含任何已知音訊關鍵字
   return (
-    url.includes(".mp4") ||
-    url.includes("audio") ||
-    url.includes("voice") ||
-    url.includes("fbsbx.com") ||
-    AUDIO_KEYWORDS.some((keyword) => url.includes(keyword))
+    WEB_REQUEST_CONSTANTS.AUDIO_KEYWORDS.some((keyword) =>
+      url.includes(keyword)
+    ) ||
+    // 檢查是否來自已知的 Facebook 的安全瀏覽擴展域名
+    SUPPORTED_SITES.CDN_PATTERNS.some((pattern) => {
+      const domain = pattern.replace("*://*.", "").replace("/*", "");
+      return url.includes(domain);
+    })
   );
 }
 
@@ -127,11 +106,26 @@ function extractAudioMetadata(responseHeaders, url) {
   ) {
     const fileSizeBytes = parseInt(metadata.contentLength, 10);
     if (!isNaN(fileSizeBytes)) {
-      // 估計持續時間：檔案大小（位元）/ 比特率（每秒位元）
-      metadata.durationMs = Math.round(
-        ((fileSizeBytes * 8) / (AVERAGE_AUDIO_BITRATE * 1024)) * 1000
-      );
-      metadata.isDurationEstimated = true;
+      // 檢查檔案大小是否在合理範圍內
+      if (
+        fileSizeBytes >= BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE &&
+        fileSizeBytes <= BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE
+      ) {
+        // 估計持續時間：檔案大小（位元）/ 比特率（每秒位元）
+        metadata.durationMs = Math.round(
+          ((fileSizeBytes * 8) / (WEB_REQUEST_CONSTANTS.AVERAGE_AUDIO_BITRATE * 1024)) * 1000
+        );
+        metadata.isDurationEstimated = true;
+
+        // 確保持續時間在有效範圍內
+        if (metadata.durationMs < BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION) {
+          metadata.durationMs = BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION;
+        } else if (
+          metadata.durationMs > BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION
+        ) {
+          metadata.durationMs = BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION;
+        }
+      }
     }
   }
 
@@ -199,7 +193,7 @@ function handleCompletedRequest(voiceMessages, details) {
     });
 
     // 只處理成功的 GET 請求
-    if (method !== "GET" || !SUCCESS_STATUS_CODES.includes(statusCode)) {
+    if (method !== "GET" || !WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES.includes(statusCode)) {
       logger.debug("跳過非 GET 或非成功狀態的請求", { method, statusCode });
       return;
     }
@@ -265,12 +259,12 @@ function handleBlobUrlMessage(voiceMessages, message, sender) {
   try {
     const { blobUrl, blobType, blobSize, timestamp, durationMs } = message;
 
-    // 檢查是否為音訊/視頻 blob
+    // 檢查是否為音訊/視頻 blob，使用 BLOB_MONITOR_CONSTANTS 定義的類型
     const isAudioOrVideo =
       blobType &&
-      (blobType.includes("audio") ||
-        blobType.includes("video") ||
-        blobType.includes("mp4"));
+      BLOB_MONITOR_CONSTANTS.POSSIBLE_AUDIO_TYPES.some((type) =>
+        blobType.includes(type)
+      );
 
     if (!isAudioOrVideo) {
       logger.debug("跳過非音訊/視頻的 blob", { blobType });
@@ -323,7 +317,7 @@ function setupMessageListeners(voiceMessages) {
           sendResponse({ success: true });
           break;
 
-        case "blobUrlDetected":
+        case MESSAGE_ACTIONS.BLOB_DETECTED:
           logger.debug("收到 blob URL 偵測訊息", {
             blobType: message.blobType,
             blobSize: message.blobSize,
