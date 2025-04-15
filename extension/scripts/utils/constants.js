@@ -84,11 +84,11 @@ export const UI_CONSTANTS = {
   BADGE_TEXT: "ON",
   BADGE_COLOR: "#4CAF50",
   CONTEXT_MENU_ID: "downloadVoiceMessage",
-  CONTEXT_MENU_TITLE: "下載語音訊息",
+  CONTEXT_MENU_TITLE: "Download Voice Message 下載語音訊息",
 };
 
 // ===========================================
-// DOM 相關常數 (從 dom-utils.js 移過來)
+// DOM 相關常數
 // ===========================================
 export const DOM_CONSTANTS = {
   // 語音訊息滑桿的 aria-label
