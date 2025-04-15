@@ -2,7 +2,7 @@
  * menu-manager.js
  * 負責管理右鍵選單
  */
-
+import { UI_CONSTANTS } from "../utils/constants.js";
 import { Logger } from "../utils/logger.js";
 
 // 創建模組特定的日誌記錄器
@@ -17,8 +17,8 @@ export function initMenuManager() {
   // 創建右鍵選單項目
   chrome.contextMenus.create(
     {
-      id: "downloadVoiceMessage",
-      title: "下載語音訊息",
+      id: UI_CONSTANTS.CONTEXT_MENU_ID,
+      title: UI_CONSTANTS.CONTEXT_MENU_TITLE,
       contexts: ["all"],
       documentUrlPatterns: ["*://*.facebook.com/*", "*://*.messenger.com/*"],
     },
