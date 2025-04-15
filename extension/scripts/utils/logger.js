@@ -11,7 +11,7 @@ let config = {
   level: LOG_LEVELS.DEBUG,
 
   // 是否顯示時間戳
-  showTimestamp: false,
+  showTimestamp: true,
 
   // 是否顯示日誌級別
   showLevel: true,
