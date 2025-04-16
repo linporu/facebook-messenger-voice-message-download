@@ -4,11 +4,130 @@
  */
 
 import { Logger } from "../utils/logger.js";
-import { MODULE_NAMES } from "../utils/constants.js";
+import {
+  MODULE_NAMES,
+  SUPPORTED_SITES,
+  BLOB_MONITOR_CONSTANTS,
+  WEB_REQUEST_CONSTANTS,
+} from "../utils/constants.js";
+
+// ================================================
+// 語音訊息檢測函數
+// ================================================
+
+/**
+ * 判斷請求是否為語音訊息
+ * @param {string} url - 請求 URL
+ * @param {string} method - HTTP 方法
+ * @param {number} statusCode - HTTP 狀態碼
+ * @param {Object} metadata - 選擇性，請求的元數據
+ * @returns {boolean} - 是否為語音訊息
+ */
+export function isVoiceMessage(url, method, statusCode, metadata = null) {
+  // 1. 基本檢查：URL 存在、為 GET 請求、狀態碼表示成功
+  if (!url || method !== "GET") return false;
+
+  if (
+    statusCode &&
+    !WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES.includes(statusCode)
+  ) {
+    return false;
+  }
+
+  // 2. URL 模式檢查
+  const hasAudioKeyword = WEB_REQUEST_CONSTANTS.AUDIO_KEYWORDS.some((keyword) =>
+    url.includes(keyword)
+  );
+
+  const isFromKnownCdn = SUPPORTED_SITES.CDN_PATTERNS.some((pattern) => {
+    const domain = pattern.replace("*://*.", "").replace("/*", "");
+    return url.includes(domain);
+  });
+
+  if (!hasAudioKeyword && !isFromKnownCdn) return false;
+
+  // 3. 若有提供元數據，進行額外檢查
+  if (metadata) {
+    // 檢查內容類型是否為音訊
+    if (metadata.contentType && !isLikelyAudioFile(metadata.contentType, url)) {
+      return false;
+    }
+
+    // 檢查檔案大小是否在合理範圍內
+    if (metadata.contentLength) {
+      const fileSizeBytes = parseInt(metadata.contentLength, 10);
+      if (
+        !isNaN(fileSizeBytes) &&
+        (fileSizeBytes < BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE ||
+          fileSizeBytes > BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE)
+      ) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
 
 // ===========================================
 // 獲得音訊持續時間
 // ===========================================
+
+/**
+ * 嘗試獲取音訊持續時間
+ * @param {Object} metadata - 基本元數據
+ * @param {string} url - 檔案 URL
+ * @returns {number|null} - 持續時間（毫秒）或 null
+ */
+export function getAudioDuration(metadata, url) {
+  // 1. 嘗試從 content-disposition 提取
+  if (metadata.contentDisposition) {
+    const duration = getAudioDurationFromContentDisposition(
+      metadata.contentDisposition
+    );
+    if (duration) return duration;
+  }
+
+  // 2. 嘗試從 URL 提取
+  const urlDuration = getAudioDurationFromUrl(url);
+  if (urlDuration) return urlDuration;
+
+  // 3. 嘗試從檔案大小估算
+  if (metadata.contentLength && isLikelyAudioFile(metadata.contentType, url)) {
+    const fileSizeBytes = parseInt(metadata.contentLength, 10);
+    if (isNaN(fileSizeBytes)) return null;
+
+    // 檢查檔案大小是否在合理範圍內
+    if (
+      fileSizeBytes < BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE ||
+      fileSizeBytes > BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE
+    ) {
+      return null;
+    }
+
+    // 估計持續時間：檔案大小（位元）/ 比特率（每秒位元）
+    let estimatedDuration = Math.round(
+      ((fileSizeBytes * 8) /
+        (WEB_REQUEST_CONSTANTS.AVERAGE_AUDIO_BITRATE * 1024)) *
+        1000
+    );
+
+    // 確保持續時間在有效範圍內
+    estimatedDuration = Math.max(
+      estimatedDuration,
+      BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION
+    );
+    estimatedDuration = Math.min(
+      estimatedDuration,
+      BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION
+    );
+
+    metadata.isDurationEstimated = true;
+    return estimatedDuration;
+  }
+
+  return null;
+}
 
 /**
  * 從 content-disposition 標頭提取持續時間
