@@ -10,10 +10,10 @@ import {
   BLOB_MONITOR_CONSTANTS,
 } from "../utils/constants.js";
 import {
-  calculateAudioDuration,
+  calculateBlobDuration,
   isLikelyVoiceMessageBlob,
   extractBlobContent,
-} from "../audio/audio-analyzer.js";
+} from "./blob-analyzer.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_MONITOR);
@@ -71,7 +71,7 @@ const BlobProcessingQueue = {
       this.processedBlobs.set(blob, true);
 
       // 計算音訊持續時間
-      const durationMs = await calculateAudioDuration(blob);
+      const durationMs = await calculateBlobDuration(blob);
 
       // 註冊到背景腳本
       registerBlobWithBackend(blob, blobUrl, durationMs);
