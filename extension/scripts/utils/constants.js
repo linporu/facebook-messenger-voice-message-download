@@ -241,6 +241,7 @@ export const MODULE_NAMES = {
   DOWNLOAD_MANAGER: "download-manager",
   DATA_STORE: "data-store",
   WEB_REQUEST: "web-request-interceptor",
+  AUDIO_ANALYZER: "audio-analyzer",
   DOM_DETECTOR: "dom-detector",
   CONTEXT_MENU: "context-menu-handler",
   BLOB_ANALYZER: "blob-analyzer",

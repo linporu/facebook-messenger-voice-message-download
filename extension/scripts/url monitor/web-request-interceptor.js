@@ -4,10 +4,10 @@
  */
 
 import {
-  extractDurationFromContentDisposition,
-  extractDurationFromUrl,
+  getAudioDurationFromContentDisposition,
+  getAudioDurationFromUrl,
   isLikelyAudioFile,
-} from "../audio/extractDurationFunctions.js";
+} from "./audio-analyzer.js";
 import { registerDownloadUrl } from "../background/data-store.js";
 import { Logger } from "../utils/logger.js";
 import {
@@ -243,14 +243,14 @@ function isVoiceMessage(url, method, statusCode, metadata = null) {
 function getAudioDuration(metadata, url) {
   // 1. 嘗試從 content-disposition 提取
   if (metadata.contentDisposition) {
-    const duration = extractDurationFromContentDisposition(
+    const duration = getAudioDurationFromContentDisposition(
       metadata.contentDisposition
     );
     if (duration) return duration;
   }
 
   // 2. 嘗試從 URL 提取
-  const urlDuration = extractDurationFromUrl(url);
+  const urlDuration = getAudioDurationFromUrl(url);
   if (urlDuration) return urlDuration;
 
   // 3. 嘗試從檔案大小估算
