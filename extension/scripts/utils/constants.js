@@ -208,7 +208,7 @@ export const MODULE_NAMES = {
   WEB_REQUEST: "web-request-interceptor",
   DOM_DETECTOR: "dom-detector",
   CONTEXT_MENU: "context-menu-handler",
-  AUDIO_ANALYZER: "audio-analyzer",
+  BLOB_ANALYZER: "blob-analyzer",
   BLOB_MONITOR: "blob-monitor",
 };
 

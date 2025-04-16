@@ -1,5 +1,5 @@
 /**
- * audio-analyzer.js
+ * blob-analyzer.js
  * 負責處理音檔分析相關功能，包含持續時間計算和音訊資料處理
  */
 
@@ -11,7 +11,7 @@ import {
 } from "../utils/constants.js";
 
 // 創建模組特定的日誌記錄器
-const logger = Logger.createModuleLogger(MODULE_NAMES.AUDIO_ANALYZER);
+const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_ANALYZER);
 
 /**
  * 從 Blob 中計算音訊持續時間
@@ -21,7 +21,7 @@ const logger = Logger.createModuleLogger(MODULE_NAMES.AUDIO_ANALYZER);
  * @param {string} [blobType] - blob 類型 (如果傳入 URL，則此參數為必須)
  * @returns {Promise<number>} - 返回音訊持續時間（毫秒）的 Promise
  */
-export async function calculateAudioDuration(blobOrUrl, blobType = null) {
+export async function calculateBlobDuration(blobOrUrl, blobType = null) {
   try {
     logger.debug("開始計算音訊持續時間");
 
@@ -331,7 +331,7 @@ export function isLikelyVoiceMessageBlob(blob) {
 
 // 匯出所有功能
 export default {
-  calculateAudioDuration,
+  calculateBlobDuration,
   extractBlobContent,
   isLikelyVoiceMessageBlob,
 };
