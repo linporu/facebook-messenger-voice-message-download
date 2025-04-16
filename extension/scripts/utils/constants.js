@@ -17,6 +17,35 @@ export const BLOB_MONITOR_CONSTANTS = {
 };
 
 // ===========================================
+// 音訊監控相關常數
+// ===========================================
+export const WEB_REQUEST_CONSTANTS = {
+  AUDIO_KEYWORDS: [
+    ".mp4",
+    ".mp3",
+    ".aac",
+    ".m4a",
+    "/audioclip-",
+    "audio",
+    "voice",
+    "sound",
+    "/v/t",
+    "/o1/v/t2/f2/m69/",
+    "/o1/v/t62/", // 新的 Facebook 語音訊息格式
+    "/o2/v/", // 另一種可能的格式
+    "attachment",
+    "clip",
+    "message",
+    "media",
+  ],
+  // 平均音訊比特率（kbps）- 用於估計持續時間
+  AVERAGE_AUDIO_BITRATE: 32, // 32kbps
+
+  // 成功的 HTTP 狀態碼
+  SUCCESS_STATUS_CODES: [200, 206], // OK, Partial Content
+};
+
+// ===========================================
 // 支援的網站相關常數
 // ===========================================
 export const SUPPORTED_SITES = {
@@ -28,6 +57,12 @@ export const SUPPORTED_SITES = {
     "*://*.fbsbx.com/*",
   ],
 };
+
+// 語音訊息 URL 的匹配模式 - 合併 SUPPORTED_SITES 中的模式
+export const VOICE_MESSAGE_URL_PATTERNS = [
+  ...SUPPORTED_SITES.PATTERNS,
+  ...SUPPORTED_SITES.CDN_PATTERNS,
+];
 
 // ===========================================
 // 訊息處理相關常數
@@ -206,6 +241,7 @@ export const MODULE_NAMES = {
   DOWNLOAD_MANAGER: "download-manager",
   DATA_STORE: "data-store",
   WEB_REQUEST: "web-request-interceptor",
+  AUDIO_ANALYZER: "audio-analyzer",
   DOM_DETECTOR: "dom-detector",
   CONTEXT_MENU: "context-menu-handler",
   BLOB_ANALYZER: "blob-analyzer",
