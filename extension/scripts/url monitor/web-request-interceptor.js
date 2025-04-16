@@ -90,25 +90,25 @@ function handleRequest(voiceMessages, details) {
     const { url, method, statusCode, responseHeaders } = details;
 
     // 提取基本標頭資訊
-    const metadata = extractMetadata(responseHeaders);
+    const metadata = getMetadata(responseHeaders);
 
     // 判斷是否為語音訊息
     if (!isVoiceMessage(url, method, statusCode, metadata)) {
       return;
     }
 
-    logger.debug("偵測到潛在語音訊息請求", {
+    logger.debug("偵測到語音訊息請求", {
       url: url.substring(0, 100) + "...",
       type: details.type,
       statusCode: statusCode,
       method: method,
     });
 
-    // 完成元數據提取（增加持續時間等資訊）
-    const durationMS = getDuration(metadata, url);
+    // 計算持續時間
+    const durationMS = getAudioDuration(metadata, url);
 
     if (durationMS) {
-      logger.info("處理語音訊息檔案", {
+      logger.info("開始註冊語音訊息檔案", {
         url: url.substring(0, 100) + "...",
         durationMs: durationMS,
         contentType: metadata.contentType,
@@ -123,7 +123,7 @@ function handleRequest(voiceMessages, details) {
         metadata.lastModified
       );
 
-      logger.debug("註冊下載 URL 完成", { id });
+      logger.debug("語音訊息 URL 註冊完成", { id });
     }
   } catch (error) {
     logger.error("處理請求時發生錯誤", {
@@ -131,6 +131,49 @@ function handleRequest(voiceMessages, details) {
       stack: error.stack,
     });
   }
+}
+
+// ================================================
+// 元數據提取函數
+// ================================================
+
+/**
+ * 從請求標頭中提取基本資訊
+ * @param {Array} responseHeaders - 回應標頭陣列
+ * @returns {Object} - 提取的基本元數據
+ */
+function getMetadata(responseHeaders) {
+  const metadata = {
+    contentDisposition: null,
+    contentType: null,
+    contentLength: null,
+    lastModified: null,
+  };
+
+  if (!responseHeaders) return metadata;
+
+  // 從標頭中提取資訊
+  for (const header of responseHeaders) {
+    const headerName = header.name.toLowerCase();
+    const headerValue = header.value;
+
+    switch (headerName) {
+      case "content-disposition":
+        metadata.contentDisposition = headerValue;
+        break;
+      case "content-type":
+        metadata.contentType = headerValue;
+        break;
+      case "content-length":
+        metadata.contentLength = headerValue;
+        break;
+      case "last-modified":
+        metadata.lastModified = headerValue;
+        break;
+    }
+  }
+
+  return metadata;
 }
 
 // ================================================
@@ -191,56 +234,13 @@ function isVoiceMessage(url, method, statusCode, metadata = null) {
   return true;
 }
 
-// ================================================
-// 元數據提取函數
-// ================================================
-
-/**
- * 從請求標頭中提取基本資訊
- * @param {Array} responseHeaders - 回應標頭陣列
- * @returns {Object} - 提取的基本元數據
- */
-function extractMetadata(responseHeaders) {
-  const metadata = {
-    lastModified: null,
-    contentType: null,
-    contentLength: null,
-    contentDisposition: null,
-  };
-
-  if (!responseHeaders) return metadata;
-
-  // 從標頭中提取資訊
-  for (const header of responseHeaders) {
-    const headerName = header.name.toLowerCase();
-    const headerValue = header.value;
-
-    switch (headerName) {
-      case "content-disposition":
-        metadata.contentDisposition = headerValue;
-        break;
-      case "last-modified":
-        metadata.lastModified = headerValue;
-        break;
-      case "content-type":
-        metadata.contentType = headerValue;
-        break;
-      case "content-length":
-        metadata.contentLength = headerValue;
-        break;
-    }
-  }
-
-  return metadata;
-}
-
 /**
  * 嘗試獲取音訊持續時間
  * @param {Object} metadata - 基本元數據
  * @param {string} url - 檔案 URL
  * @returns {number|null} - 持續時間（毫秒）或 null
  */
-function getDuration(metadata, url) {
+function getAudioDuration(metadata, url) {
   // 1. 嘗試從 content-disposition 提取
   if (metadata.contentDisposition) {
     const duration = extractDurationFromContentDisposition(
