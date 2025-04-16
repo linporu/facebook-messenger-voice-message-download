@@ -249,6 +249,24 @@ export const MODULE_NAMES = {
 };
 
 // ===========================================
+// 音訊分析相關正則表達式常數
+// ===========================================
+export const AUDIO_REGEX = {
+  // Content-Disposition 相關正則表達式
+  OLD_FORMAT_FILENAME: /filename=audioclip-\d+-([\d]+)\.mp4/,
+  DURATION_PARAM: /duration=([\d]+)/,
+  FILENAME_PATTERN: /filename=["']?([^"']+)["']?/,
+  
+  // URL 相關正則表達式
+  AUDIOCLIP_URL: /audioclip-\d+-([0-9]+)\.mp4/,
+  DURATION_URL_PARAM: /[?&]duration=([\d]+)/,
+  LENGTH_URL_PARAM: /[?&]length=([\d]+)/,
+  
+  // URL 特徵檢測
+  AUDIO_URL_PATTERNS: /\/o1\/v\/t2\/f2\/m69\/|\/v\/t\/|audioclip/
+};
+
+// ===========================================
 // 檔名相關常數
 // ===========================================
 export const FILENAME_CONSTANTS = {

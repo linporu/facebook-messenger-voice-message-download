@@ -9,6 +9,7 @@ import {
   SUPPORTED_SITES,
   BLOB_MONITOR_CONSTANTS,
   WEB_REQUEST_CONSTANTS,
+  AUDIO_REGEX,
 } from "../utils/constants.js";
 
 // ================================================
@@ -151,9 +152,7 @@ export function getAudioDurationFromContentDisposition(contentDisposition) {
   // 嘗試多種可能的格式
 
   // 格式範例 1：attachment; filename=audioclip-1742393117000-30999.mp4
-  const oldFormatMatch = contentDisposition.match(
-    /filename=audioclip-\d+-(\d+)\.mp4/
-  );
+  const oldFormatMatch = AUDIO_REGEX.OLD_FORMAT_FILENAME.exec(contentDisposition);
   if (oldFormatMatch && oldFormatMatch[1]) {
     const durationMs = parseInt(oldFormatMatch[1], 10);
     Logger.debug("匹配到舊格式持續時間", {
@@ -164,7 +163,7 @@ export function getAudioDurationFromContentDisposition(contentDisposition) {
   }
 
   // 格式範例 2：attachment; filename="audio_message.mp4"; duration=30999
-  const durationMatch = contentDisposition.match(/duration=(\d+)/);
+  const durationMatch = AUDIO_REGEX.DURATION_PARAM.exec(contentDisposition);
   if (durationMatch && durationMatch[1]) {
     const durationMs = parseInt(durationMatch[1], 10);
     Logger.debug("匹配到持續時間標記", {
@@ -175,7 +174,7 @@ export function getAudioDurationFromContentDisposition(contentDisposition) {
   }
 
   // 嘗試其他可能的檔案名格式
-  const filenameMatch = contentDisposition.match(/filename=["']?([^"']+)["']?/);
+  const filenameMatch = AUDIO_REGEX.FILENAME_PATTERN.exec(contentDisposition);
   Logger.debug("檔案名匹配", {
     module: MODULE_NAMES.AUDIO_ANALYZER,
     data: filenameMatch ? filenameMatch[1] : null,
@@ -205,7 +204,7 @@ export function getAudioDurationFromUrl(url) {
 
   // 格式範例 1：...audioclip-1742393117000-30999.mp4...
   // 這是 Facebook Messenger 語音訊息的常見格式
-  const audioclipMatch = url.match(/audioclip-\d+-([0-9]+)\.mp4/);
+  const audioclipMatch = AUDIO_REGEX.AUDIOCLIP_URL.exec(url);
   if (audioclipMatch && audioclipMatch[1]) {
     const durationMs = parseInt(audioclipMatch[1], 10);
     Logger.debug("從 URL audioclip 格式匹配到持續時間", {
@@ -217,7 +216,7 @@ export function getAudioDurationFromUrl(url) {
 
   // 格式範例 2：...duration=30999...
   // 這是一些 API 回應中可能的格式
-  const durationMatch = url.match(/[?&]duration=(\d+)/);
+  const durationMatch = AUDIO_REGEX.DURATION_URL_PARAM.exec(url);
   if (durationMatch && durationMatch[1]) {
     const durationMs = parseInt(durationMatch[1], 10);
     Logger.debug("從 URL 參數匹配到持續時間", {
@@ -229,7 +228,7 @@ export function getAudioDurationFromUrl(url) {
 
   // 格式範例 3：...length=30999...
   // 這是另一種可能的格式
-  const lengthMatch = url.match(/[?&]length=(\d+)/);
+  const lengthMatch = AUDIO_REGEX.LENGTH_URL_PARAM.exec(url);
   if (lengthMatch && lengthMatch[1]) {
     const durationMs = parseInt(lengthMatch[1], 10);
     Logger.debug("從 URL length 參數匹配到持續時間", {
@@ -270,11 +269,7 @@ export function isLikelyAudioFile(contentType, url) {
 
   // 檢查 URL 特徵
   if (url) {
-    if (
-      url.includes("/o1/v/t2/f2/m69/") ||
-      url.includes("/v/t/") ||
-      url.includes("audioclip")
-    ) {
+    if (AUDIO_REGEX.AUDIO_URL_PATTERNS.test(url)) {
       Logger.debug("根據 URL 判斷為語音檔案", {
         module: MODULE_NAMES.AUDIO_ANALYZER,
         data: url.substring(0, 100),
