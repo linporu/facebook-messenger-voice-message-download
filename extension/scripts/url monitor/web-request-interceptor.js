@@ -90,10 +90,10 @@ function handleRequest(voiceMessages, details) {
     const { url, method, statusCode, responseHeaders } = details;
 
     // 提取基本標頭資訊
-    const basicMetadata = extractBasicHeaderInfo(responseHeaders);
+    const metadata = extractMetadata(responseHeaders);
 
     // 判斷是否為語音訊息
-    if (!isVoiceMessage(url, method, statusCode, basicMetadata)) {
+    if (!isVoiceMessage(url, method, statusCode, metadata)) {
       return;
     }
 
@@ -105,10 +105,26 @@ function handleRequest(voiceMessages, details) {
     });
 
     // 完成元數據提取（增加持續時間等資訊）
-    const metadata = extractAudioMetadata(responseHeaders, url);
+    const durationMS = getDuration(metadata, url);
 
-    // 處理和註冊
-    processAndRegisterAudio(voiceMessages, metadata, url);
+    if (durationMS) {
+      logger.info("處理語音訊息檔案", {
+        url: url.substring(0, 100) + "...",
+        durationMs: durationMS,
+        contentType: metadata.contentType,
+        contentLength: metadata.contentLength,
+      });
+
+      // 註冊下載 URL
+      const id = registerDownloadUrl(
+        voiceMessages,
+        durationMS,
+        url,
+        metadata.lastModified
+      );
+
+      logger.debug("註冊下載 URL 完成", { id });
+    }
   } catch (error) {
     logger.error("處理請求時發生錯誤", {
       error: error.message,
@@ -184,9 +200,8 @@ function isVoiceMessage(url, method, statusCode, metadata = null) {
  * @param {Array} responseHeaders - 回應標頭陣列
  * @returns {Object} - 提取的基本元數據
  */
-function extractBasicHeaderInfo(responseHeaders) {
+function extractMetadata(responseHeaders) {
   const metadata = {
-    durationMs: null,
     lastModified: null,
     contentType: null,
     contentLength: null,
@@ -273,59 +288,4 @@ function getDuration(metadata, url) {
   }
 
   return null;
-}
-
-/**
- * 從請求標頭中提取音訊相關元數據
- * @param {Array} responseHeaders - 回應標頭陣列
- * @param {string} url - 請求 URL
- * @returns {Object} - 提取的元數據
- */
-function extractAudioMetadata(responseHeaders, url) {
-  // 提取基本標頭資訊
-  const metadata = extractBasicHeaderInfo(responseHeaders);
-
-  // 嘗試獲取持續時間
-  metadata.durationMs = getDuration(metadata, url);
-
-  return metadata;
-}
-
-// ================================================
-// 註冊與處理函數
-// ================================================
-
-/**
- * 處理和註冊音訊檔案
- * @param {Object} voiceMessages - 語音訊息資料存儲
- * @param {Object} metadata - 音訊元數據
- * @param {string} url - 檔案 URL
- * @returns {string|null} - 註冊的 ID 或 null
- */
-function processAndRegisterAudio(voiceMessages, metadata, url) {
-  if (!metadata.durationMs) {
-    logger.debug("無法確定音訊持續時間，跳過處理", {
-      url: url.substring(0, 100) + "...",
-    });
-    return null;
-  }
-
-  logger.info("處理語音訊息檔案", {
-    url: url.substring(0, 100) + "...",
-    durationMs: metadata.durationMs,
-    isDurationEstimated: metadata.isDurationEstimated || false,
-    contentType: metadata.contentType,
-    contentLength: metadata.contentLength,
-  });
-
-  // 註冊下載 URL
-  const id = registerDownloadUrl(
-    voiceMessages,
-    metadata.durationMs,
-    url,
-    metadata.lastModified
-  );
-
-  logger.debug("註冊下載 URL 完成", { id });
-  return id;
 }
