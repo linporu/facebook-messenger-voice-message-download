@@ -3,7 +3,7 @@
  * 使用 Chrome 的 webRequest API 監控網路請求，用於攔截語音訊息的下載 URL
  */
 
-import { getAudioDuration, isVoiceMessage } from "./audio-analyzer.js";
+import { getAudioDuration, isLikelyVoiceMessage } from "./audio-analyzer.js";
 import { registerDownloadUrl } from "../background/data-store.js";
 import { Logger } from "../utils/logger.js";
 import {
@@ -82,11 +82,11 @@ function handleRequest(voiceMessages, details) {
   try {
     const { url, method, statusCode, responseHeaders } = details;
 
-    // 提取基本標頭資訊
+    // 提取 metadata
     const metadata = getMetadata(responseHeaders);
 
-    // 判斷是否為語音訊息
-    if (!isVoiceMessage(url, method, statusCode, metadata)) {
+    // 判斷是否可能為語音訊息
+    if (!isLikelyVoiceMessage(url, method, statusCode, metadata)) {
       return;
     }
 
@@ -127,13 +127,13 @@ function handleRequest(voiceMessages, details) {
 }
 
 // ================================================
-// 元數據提取函數
+// Metadata 提取函數
 // ================================================
 
 /**
- * 從請求標頭中提取元數據
+ * 從請求標頭中提取 metadata
  * @param {Array} responseHeaders - 回應標頭陣列
- * @returns {Object} - 提取元數據
+ * @returns {Object} - 提取 metadata
  */
 function getMetadata(responseHeaders) {
   const metadata = {

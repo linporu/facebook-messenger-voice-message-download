@@ -24,7 +24,7 @@ import {
  * @param {Object} metadata - 選擇性，請求的元數據
  * @returns {boolean} - 是否為語音訊息
  */
-export function isVoiceMessage(url, method, statusCode, metadata = null) {
+export function isLikelyVoiceMessage(url, method, statusCode, metadata) {
   // 1. 基本檢查：URL 存在、為 GET 請求、狀態碼表示成功
   if (!url || method !== "GET") return false;
 
@@ -35,35 +35,31 @@ export function isVoiceMessage(url, method, statusCode, metadata = null) {
     return false;
   }
 
-  // 2. URL 模式檢查
-  const hasAudioKeyword = WEB_REQUEST_CONSTANTS.AUDIO_KEYWORDS.some((keyword) =>
-    url.includes(keyword)
-  );
-
+  // 2. 網域檢查：是否來自已知 CDN
   const isFromKnownCdn = SUPPORTED_SITES.CDN_PATTERNS.some((pattern) => {
     const domain = pattern.replace("*://*.", "").replace("/*", "");
     return url.includes(domain);
   });
 
-  if (!hasAudioKeyword && !isFromKnownCdn) return false;
+  if (!isFromKnownCdn) return false;
 
-  // 3. 若有提供元數據，進行額外檢查
-  if (metadata) {
-    // 檢查內容類型是否為音訊
-    if (metadata.contentType && !isLikelyAudioFile(metadata.contentType, url)) {
+  // 3. 內容類型檢查：是否為音訊
+  if (
+    metadata.contentType &&
+    !WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES.includes(metadata.contentType)
+  ) {
+    return false;
+  }
+
+  // 4. 檔案大小檢查：是否在合理範圍內
+  if (metadata.contentLength) {
+    const fileSizeBytes = parseInt(metadata.contentLength, 10);
+    if (
+      !isNaN(fileSizeBytes) &&
+      (fileSizeBytes < BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE ||
+        fileSizeBytes > BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE)
+    ) {
       return false;
-    }
-
-    // 檢查檔案大小是否在合理範圍內
-    if (metadata.contentLength) {
-      const fileSizeBytes = parseInt(metadata.contentLength, 10);
-      if (
-        !isNaN(fileSizeBytes) &&
-        (fileSizeBytes < BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE ||
-          fileSizeBytes > BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE)
-      ) {
-        return false;
-      }
     }
   }
 
@@ -93,40 +89,10 @@ export function getAudioDuration(metadata, url) {
   const urlDuration = getAudioDurationFromUrl(url);
   if (urlDuration) return urlDuration;
 
-  // 3. 嘗試從檔案大小估算
-  if (metadata.contentLength && isLikelyAudioFile(metadata.contentType, url)) {
-    const fileSizeBytes = parseInt(metadata.contentLength, 10);
-    if (isNaN(fileSizeBytes)) return null;
-
-    // 檢查檔案大小是否在合理範圍內
-    if (
-      fileSizeBytes < BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE ||
-      fileSizeBytes > BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE
-    ) {
-      return null;
-    }
-
-    // 估計持續時間：檔案大小（位元）/ 比特率（每秒位元）
-    let estimatedDuration = Math.round(
-      ((fileSizeBytes * 8) /
-        (WEB_REQUEST_CONSTANTS.AVERAGE_AUDIO_BITRATE * 1024)) *
-        1000
-    );
-
-    // 確保持續時間在有效範圍內
-    estimatedDuration = Math.max(
-      estimatedDuration,
-      BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION
-    );
-    estimatedDuration = Math.min(
-      estimatedDuration,
-      BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION
-    );
-
-    metadata.isDurationEstimated = true;
-    return estimatedDuration;
-  }
-
+  // 所有提取方法皆失敗，回傳 null
+  Logger.debug("所有提取持續時間方法皆失敗", {
+    module: MODULE_NAMES.AUDIO_ANALYZER,
+  });
   return null;
 }
 
@@ -152,7 +118,8 @@ export function getAudioDurationFromContentDisposition(contentDisposition) {
   // 嘗試多種可能的格式
 
   // 格式範例 1：attachment; filename=audioclip-1742393117000-30999.mp4
-  const oldFormatMatch = AUDIO_REGEX.OLD_FORMAT_FILENAME.exec(contentDisposition);
+  const oldFormatMatch =
+    AUDIO_REGEX.OLD_FORMAT_FILENAME.exec(contentDisposition);
   if (oldFormatMatch && oldFormatMatch[1]) {
     const durationMs = parseInt(oldFormatMatch[1], 10);
     Logger.debug("匹配到舊格式持續時間", {
@@ -242,41 +209,4 @@ export function getAudioDurationFromUrl(url) {
     module: MODULE_NAMES.AUDIO_ANALYZER,
   });
   return null;
-}
-
-/**
- * 根據 content-type 和 URL 判斷是否可能是語音訊息檔案
- *
- * @param {string} contentType - Content-Type 標頭值
- * @param {string} url - 請求 URL
- * @returns {boolean} - 是否可能是語音訊息檔案
- */
-export function isLikelyAudioFile(contentType, url) {
-  // 檢查 content-type
-  if (contentType) {
-    if (
-      contentType.includes("audio/") ||
-      contentType.includes("video/mp4") ||
-      contentType.includes("application/octet-stream")
-    ) {
-      Logger.debug("根據 content-type 判斷為語音檔案", {
-        module: MODULE_NAMES.AUDIO_ANALYZER,
-        data: contentType,
-      });
-      return true;
-    }
-  }
-
-  // 檢查 URL 特徵
-  if (url) {
-    if (AUDIO_REGEX.AUDIO_URL_PATTERNS.test(url)) {
-      Logger.debug("根據 URL 判斷為語音檔案", {
-        module: MODULE_NAMES.AUDIO_ANALYZER,
-        data: url.substring(0, 100),
-      });
-      return true;
-    }
-  }
-
-  return false;
 }
