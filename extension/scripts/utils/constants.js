@@ -20,29 +20,19 @@ export const BLOB_MONITOR_CONSTANTS = {
 // 音訊監控相關常數
 // ===========================================
 export const WEB_REQUEST_CONSTANTS = {
-  AUDIO_KEYWORDS: [
-    ".mp4",
-    ".mp3",
-    ".aac",
-    ".m4a",
-    "/audioclip-",
-    "audio",
-    "voice",
-    "sound",
-    "/v/t",
-    "/o1/v/t2/f2/m69/",
-    "/o1/v/t62/", // 新的 Facebook 語音訊息格式
-    "/o2/v/", // 另一種可能的格式
-    "attachment",
-    "clip",
-    "message",
-    "media",
-  ],
   // 平均音訊比特率（kbps）- 用於估計持續時間
   AVERAGE_AUDIO_BITRATE: 32, // 32kbps
 
   // 成功的 HTTP 狀態碼
   SUCCESS_STATUS_CODES: [200, 206], // OK, Partial Content
+
+  AUDIO_CONTENT_TYPES: [
+    "audio/wav",
+    "audio/x-wav",
+    "audio/mp4",
+    "video/mp4",
+    "application/octet-stream",
+  ],
 };
 
 // ===========================================
@@ -246,6 +236,24 @@ export const MODULE_NAMES = {
   CONTEXT_MENU: "context-menu-handler",
   BLOB_ANALYZER: "blob-analyzer",
   BLOB_MONITOR: "blob-monitor",
+};
+
+// ===========================================
+// 音訊分析相關正則表達式常數
+// ===========================================
+export const AUDIO_REGEX = {
+  // Content-Disposition 相關正則表達式
+  OLD_FORMAT_FILENAME: /filename=audioclip-\d+-([\d]+)\.mp4/,
+  DURATION_PARAM: /duration=([\d]+)/,
+  FILENAME_PATTERN: /filename=["']?([^"']+)["']?/,
+
+  // URL 相關正則表達式
+  AUDIOCLIP_URL: /audioclip-\d+-([0-9]+)\.mp4/,
+  DURATION_URL_PARAM: /[?&]duration=([\d]+)/,
+  LENGTH_URL_PARAM: /[?&]length=([\d]+)/,
+
+  // URL 特徵檢測
+  AUDIO_URL_PATTERNS: /\/o1\/v\/t2\/f2\/m69\/|\/v\/t\/|audioclip/,
 };
 
 // ===========================================
