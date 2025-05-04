@@ -236,6 +236,9 @@ export const MODULE_NAMES = {
   CONTEXT_MENU: "context-menu-handler",
   BLOB_ANALYZER: "blob-analyzer",
   BLOB_MONITOR: "blob-monitor",
+  BLOB_HANDLER: "blob-handler",
+  RIGHT_CLICK_HANDLER: "right-click-handler",
+  ELEMENT_REGISTRATION_HANDLER: "element-registration-handler",
 };
 
 // ===========================================
