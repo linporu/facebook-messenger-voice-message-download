@@ -5,7 +5,7 @@
 
 import {
   setLastRightClickedInfo,
-  downloadVoiceMessage,
+  downloadBlobContent,
 } from "./download-manager.js";
 
 import { createDataStore } from "./data-store.js";
@@ -54,15 +54,11 @@ export function initMessageHandler(voiceMessages) {
       return true; // 保持連接開啟，以便異步回應
     } else if (message.action === MESSAGE_ACTIONS.DOWNLOAD_BLOB) {
       logger.debug("處理 blob 內容下載訊息");
-      handleDownloadBlobContent(message, sender, sendResponse);
+      downloadBlobContent(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
     } else if (message.action === MESSAGE_ACTIONS.REGISTER_BLOB_URL) {
       logger.debug("處理 Blob URL 註冊訊息");
       handleRegisterBlobUrl(message, sender, sendResponse);
-      return true; // 保持連接開啟，以便異步回應
-    } else if (message.action === MESSAGE_ACTIONS.BLOB_DETECTED) {
-      logger.debug("處理 Blob URL 偵測訊息");
-      handleBlobUrlDetected(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
     } else {
       logger.warn("未處理的訊息類型", {
@@ -451,142 +447,5 @@ function handleRegisterBlobUrl(message, sender, sendResponse) {
       success: false,
       message: `註冊 Blob URL 時發生錯誤: ${error.message}`,
     });
-  }
-}
-
-/**
- * 處理 Blob URL 偵測訊息
- * 記錄 Blob URL 資訊，但不進行註冊（因為沒有持續時間資訊）
- *
- * @param {Object} message - 訊息物件
- * @param {Object} sender - 發送者資訊
- * @param {Function} sendResponse - 回應函數
- */
-function handleBlobUrlDetected(message, sender, sendResponse) {
-  logger.debug("處理 Blob URL 偵測訊息", {
-    blobUrl: message.blobUrl ? message.blobUrl.substring(0, 30) + "..." : null,
-    blobType: message.blobType,
-    blobSize: message.blobSize,
-    timestamp: message.timestamp,
-    error: message.error,
-  });
-
-  // 只記錄資訊，不進行實際的註冊
-  // 如果有錯誤，記錄錯誤資訊
-  if (message.error) {
-    logger.error("Blob URL 偵測中的錯誤", {
-      error: message.error,
-    });
-  }
-
-  sendResponse({
-    success: true,
-    message: "已記錄 Blob URL 偵測資訊",
-  });
-}
-
-/**
- * 處理 blob 內容下載訊息
- *
- * @param {Object} message - 訊息物件
- * @param {Object} sender - 發送者資訊
- * @param {Function} sendResponse - 回應函數
- */
-function handleDownloadBlobContent(message, sender, sendResponse) {
-  try {
-    logger.debug("處理 blob 內容下載訊息", {
-      blobType: message.blobType,
-      base64Length: message.base64data ? message.base64data.length : 0,
-      requestId: message.requestId,
-      timestamp: message.timestamp,
-    });
-
-    // 檢查必要的參數
-    if (!message.base64data || !message.blobType) {
-      logger.error("缺少必要的參數");
-      sendResponse({ success: false, error: "缺少必要的參數" });
-      return;
-    }
-
-    // 注意：在背景腳本（Service Worker）中不能使用 URL.createObjectURL
-
-    // 直接使用 base64 資料，不需要轉換為 blob
-    logger.debug("使用 base64 資料直接下載:", {
-      blobType: message.blobType,
-      base64Length: message.base64data.length,
-    });
-
-    // 根據 MIME 類型決定副檔名
-    let fileExtension = ".bin";
-    if (
-      message.blobType.includes("audio/mpeg") ||
-      message.blobType.includes("audio/mp3")
-    ) {
-      fileExtension = ".mp3";
-    } else if (
-      message.blobType.includes("audio/mp4") ||
-      message.blobType.includes("video/mp4")
-    ) {
-      fileExtension = ".mp4";
-    } else if (message.blobType.includes("audio/wav")) {
-      fileExtension = ".wav";
-    } else if (message.blobType.includes("audio/ogg")) {
-      fileExtension = ".ogg";
-    } else if (message.blobType.includes("audio/aac")) {
-      fileExtension = ".aac";
-    }
-
-    // 生成檔案名稱
-    const timestamp = message.timestamp
-      ? new Date(message.timestamp)
-      : new Date();
-    const formattedDate = timestamp
-      .toISOString()
-      .replace(/[:.]/g, "-")
-      .slice(0, 19);
-    const filename = `voice-message-${formattedDate}${fileExtension}`;
-
-    // 創建 Data URL
-    const dataUrl = `data:${message.blobType};base64,${message.base64data}`;
-
-    // 下載檔案
-    chrome.downloads.download(
-      {
-        url: dataUrl,
-        filename: filename,
-        saveAs: false,
-      },
-      (downloadId) => {
-        if (chrome.runtime.lastError) {
-          logger.error("下載檔案時發生錯誤", {
-            error: chrome.runtime.lastError,
-          });
-          sendResponse({
-            success: false,
-            error: chrome.runtime.lastError.message,
-          });
-          return;
-        }
-
-        logger.info("已開始下載檔案", {
-          downloadId,
-          filename,
-          blobType: message.blobType,
-        });
-
-        sendResponse({
-          success: true,
-          message: "已開始下載檔案",
-          downloadId,
-          filename,
-        });
-      }
-    );
-  } catch (error) {
-    logger.error("處理 blob 內容下載時發生錯誤", {
-      error: error.message,
-      stack: error.stack,
-    });
-    sendResponse({ success: false, error: error.message });
   }
 }
