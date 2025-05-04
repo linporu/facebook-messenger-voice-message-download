@@ -71,7 +71,7 @@ export function initMessageHandler(voiceMessages) {
         );
 
       case MESSAGE_ACTIONS.DOWNLOAD_BLOB:
-        logger.debug("處理 blob 內容下載訊息");
+        logger.debug("處理 Blob 內容下載訊息");
         return handleBlobContent(message, sender, sendResponse);
 
       case MESSAGE_ACTIONS.REGISTER_BLOB_URL:
