@@ -60,10 +60,7 @@ export function initMessageHandler(voiceMessages) {
       logger.debug("處理 Blob URL 註冊訊息");
       handleRegisterBlobUrl(message, sender, sendResponse);
       return true; // 保持連接開啟，以便異步回應
-    } else if (message.action === MESSAGE_ACTIONS.BLOB_DETECTED) {
-      logger.debug("處理 Blob URL 偵測訊息");
-      handleBlobUrlDetected(message, sender, sendResponse);
-      return true; // 保持連接開啟，以便異步回應
+
     } else {
       logger.warn("未處理的訊息類型", {
         action: message.action || "無動作",
@@ -454,36 +451,7 @@ function handleRegisterBlobUrl(message, sender, sendResponse) {
   }
 }
 
-/**
- * 處理 Blob URL 偵測訊息
- * 記錄 Blob URL 資訊，但不進行註冊（因為沒有持續時間資訊）
- *
- * @param {Object} message - 訊息物件
- * @param {Object} sender - 發送者資訊
- * @param {Function} sendResponse - 回應函數
- */
-function handleBlobUrlDetected(message, sender, sendResponse) {
-  logger.debug("處理 Blob URL 偵測訊息", {
-    blobUrl: message.blobUrl ? message.blobUrl.substring(0, 30) + "..." : null,
-    blobType: message.blobType,
-    blobSize: message.blobSize,
-    timestamp: message.timestamp,
-    error: message.error,
-  });
 
-  // 只記錄資訊，不進行實際的註冊
-  // 如果有錯誤，記錄錯誤資訊
-  if (message.error) {
-    logger.error("Blob URL 偵測中的錯誤", {
-      error: message.error,
-    });
-  }
-
-  sendResponse({
-    success: true,
-    message: "已記錄 Blob URL 偵測資訊",
-  });
-}
 
 /**
  * 處理 blob 內容下載訊息
