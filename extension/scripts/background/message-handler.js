@@ -1,6 +1,6 @@
 /**
  * message-handler.js
- * 負責處理來自內容腳本的訊息並路由到正確的處理器
+ * 負責處理來自內容腳本的訊息
  */
 
 import { handleRightClick } from "./handlers/right-click-handler.js";

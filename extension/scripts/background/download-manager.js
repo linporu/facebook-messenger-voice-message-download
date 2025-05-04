@@ -102,3 +102,109 @@ export function downloadVoiceMessage(url, lastModified) {
     filename,
   });
 }
+
+/**
+ * 處理 blob 內容下載訊息
+ *
+ * @param {Object} message - 訊息物件
+ * @param {Object} sender - 發送者資訊
+ * @param {Function} sendResponse - 回應函數
+ */
+export function downloadBlobContent(message, sender, sendResponse) {
+  try {
+    logger.debug("處理 blob 內容下載訊息", {
+      blobType: message.blobType,
+      base64Length: message.base64data ? message.base64data.length : 0,
+      requestId: message.requestId,
+      timestamp: message.timestamp,
+    });
+
+    // 檢查必要的參數
+    if (!message.base64data || !message.blobType) {
+      logger.error("缺少必要的參數");
+      sendResponse({ success: false, error: "缺少必要的參數" });
+      return;
+    }
+
+    // 注意：在背景腳本（Service Worker）中不能使用 URL.createObjectURL
+
+    // 直接使用 base64 資料，不需要轉換為 blob
+    logger.debug("使用 base64 資料直接下載:", {
+      blobType: message.blobType,
+      base64Length: message.base64data.length,
+    });
+
+    // 根據 MIME 類型決定副檔名
+    let fileExtension = ".bin";
+    if (
+      message.blobType.includes("audio/mpeg") ||
+      message.blobType.includes("audio/mp3")
+    ) {
+      fileExtension = ".mp3";
+    } else if (
+      message.blobType.includes("audio/mp4") ||
+      message.blobType.includes("video/mp4")
+    ) {
+      fileExtension = ".mp4";
+    } else if (message.blobType.includes("audio/wav")) {
+      fileExtension = ".wav";
+    } else if (message.blobType.includes("audio/ogg")) {
+      fileExtension = ".ogg";
+    } else if (message.blobType.includes("audio/aac")) {
+      fileExtension = ".aac";
+    }
+
+    // 生成檔案名稱
+    const timestamp = message.timestamp
+      ? new Date(message.timestamp)
+      : new Date();
+    const formattedDate = timestamp
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .slice(0, 19);
+    const filename = `voice-message-${formattedDate}${fileExtension}`;
+
+    // 創建 Data URL
+    const dataUrl = `data:${message.blobType};base64,${message.base64data}`;
+
+    // 下載檔案
+    chrome.downloads.download(
+      {
+        url: dataUrl,
+        filename: filename,
+        saveAs: false,
+      },
+      (downloadId) => {
+        if (chrome.runtime.lastError) {
+          logger.error("下載檔案時發生錯誤", {
+            error: chrome.runtime.lastError,
+          });
+          sendResponse({
+            success: false,
+            error: chrome.runtime.lastError.message,
+          });
+          return;
+        }
+
+        logger.info("已開始下載檔案", {
+          downloadId,
+          filename,
+          blobType: message.blobType,
+        });
+
+        sendResponse({
+          success: true,
+          message: "已開始下載檔案",
+          downloadId,
+          filename,
+        });
+      }
+    );
+  } catch (error) {
+    logger.error("處理 blob 內容下載時發生錯誤", {
+      error: error.message,
+      stack: error.stack,
+    });
+    sendResponse({ success: false, error: error.message });
+  }
+}
