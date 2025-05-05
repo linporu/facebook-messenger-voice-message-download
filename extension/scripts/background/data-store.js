@@ -4,16 +4,13 @@
  * 使用單例模式確保整個擴充功能中只有一個 voiceMessages 實例
  */
 
-import {
-  generateVoiceMessageId,
-  isVoiceMessageId,
-} from "../utils/id-generator.js";
-import { markAsVoiceMessageElement } from "../dom monitor/dom-utils.js";
+import { generateVoiceMessageId } from "../utils/id-generator.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
+import { MODULE_NAMES } from "../utils/constants.js";
 
 // 創建模組特定的日誌記錄器
-const logger = Logger.createModuleLogger("data-store");
+const logger = Logger.createModuleLogger(MODULE_NAMES.DATA_STORE);
 
 // 全域單例實例
 let voiceMessagesInstance = null;
@@ -40,7 +37,6 @@ export function createDataStore() {
 
     // 輔助函數
     isDurationMatch,
-    registerVoiceMessageElement,
     registerDownloadUrl,
     findPendingItemByDuration,
     findItemByDuration,
@@ -64,58 +60,6 @@ export function isDurationMatch(duration1Ms, duration2Ms, toleranceMs = 5) {
   }
 
   return Math.abs(duration1Ms - duration2Ms) <= toleranceMs;
-}
-
-/**
- * 註冊語音訊息元素
- *
- * @param {Object} voiceMessages - 語音訊息資料存儲
- * @param {Element} element - 語音訊息元素
- * @param {number} durationSec - 持續時間（秒）
- * @returns {string} - 語音訊息 ID
- */
-export function registerVoiceMessageElement(
-  voiceMessages,
-  element,
-  durationSec
-) {
-  // 將秒轉換為毫秒
-  const durationMs = secondsToMilliseconds(durationSec);
-
-  // 檢查是否有待處理的項目匹配此持續時間
-  const pendingItem = findPendingItemByDuration(voiceMessages, durationMs);
-
-  if (pendingItem) {
-    // 如果有待處理項目，更新它
-    const id = pendingItem.id;
-
-    // 更新待處理項目
-    pendingItem.element = element;
-    pendingItem.isPending = false;
-
-    // 標記元素
-    markAsVoiceMessageElement(element, id);
-
-    return id;
-  } else {
-    // 如果沒有待處理項目，創建新項目
-    const id = generateVoiceMessageId();
-
-    // 將 ID 設置為元素的 data-voice-message-id 屬性
-    markAsVoiceMessageElement(element, id);
-
-    // 在 voiceMessages.items 中建立新項目
-    voiceMessages.items.set(id, {
-      id,
-      element,
-      durationMs,
-      downloadUrl: null,
-      lastModified: null,
-      timestamp: Date.now(),
-    });
-
-    return id;
-  }
 }
 
 /**

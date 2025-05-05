@@ -4,7 +4,6 @@
  * 這個檔案會以 ES6 模組的方式載入，可以使用 import/export 語法
  */
 
-import { initDomDetector } from "./dom monitor/dom-detector.js";
 import { initContextMenuHandler } from "./content/context-menu-handler.js";
 import { Logger } from "./utils/logger.js";
 import {
@@ -36,9 +35,6 @@ function initialize() {
 
   // 初始化 Blob 監控模組
   initBlobMonitor();
-
-  // 初始化 DOM 偵測器 - 不再傳遞 voiceMessages 參數
-  initDomDetector();
 
   // 初始化右鍵選單處理器 - 不再傳遞 voiceMessages 參數
   initContextMenuHandler();
