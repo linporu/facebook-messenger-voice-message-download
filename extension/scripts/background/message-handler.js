@@ -5,6 +5,7 @@
 
 import { handleRightClick } from "./handlers/right-click-handler.js";
 import { handleElementRegistration } from "./handlers/element-registration-handler.js";
+import { handleAudioUrlRegistration } from "./handlers/audio-url-registration-handler.js";
 import {
   handleBlobUrl,
   handleBlobContent,
@@ -64,6 +65,15 @@ export function initMessageHandler(voiceMessages) {
       case MESSAGE_ACTIONS.REGISTER_ELEMENT:
         logger.debug("處理語音訊息元素註冊訊息");
         return handleElementRegistration(
+          voiceMessagesStore,
+          message,
+          sender,
+          sendResponse
+        );
+
+      case MESSAGE_ACTIONS.REGISTER_AUDIO_URL:
+        logger.debug("處理 Audio URL 註冊訊息");
+        return handleAudioUrlRegistration(
           voiceMessagesStore,
           message,
           sender,
