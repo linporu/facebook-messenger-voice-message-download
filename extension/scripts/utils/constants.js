@@ -70,11 +70,9 @@ export const MESSAGE_TYPES = {
 
 export const MESSAGE_ACTIONS = {
   RIGHT_CLICK: "rightClickOnVoiceMessage",
-  REGISTER_ELEMENT: "registerVoiceMessageElement",
   REGISTER_AUDIO_URL: "registerAudioUrl",
   REGISTER_BLOB_URL: "registerBlobUrl",
   DOWNLOAD_BLOB: "downloadBlobContent",
-
   BLOB_DETECTED: "blobUrlDetected",
   UPDATE_ELEMENT: "updateVoiceMessageElement",
   GET_AUDIO_DURATION: "getAudioDuration",

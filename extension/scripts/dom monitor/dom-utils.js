@@ -13,15 +13,19 @@ import { DOM_CONSTANTS } from "../utils/constants.js";
  * @returns {boolean} - 如果元素是語音訊息滑桿則返回 true
  */
 export function isVoiceMessageSlider(element) {
-  if (!element || element.nodeType !== Node.ELEMENT_NODE || element.getAttribute("role") !== "slider") {
+  if (
+    !element ||
+    element.nodeType !== Node.ELEMENT_NODE ||
+    element.getAttribute("role") !== "slider"
+  ) {
     return false;
   }
-  
+
   const elementLabel = element.getAttribute("aria-label");
   if (!elementLabel) {
     return false;
   }
-  
+
   // 檢查元素的 aria-label 是否在支援的標籤列表中
   return DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL.includes(elementLabel);
 }
@@ -66,7 +70,7 @@ export function isPotentialVoiceMessageContainer(element) {
 
   // 檢查元素是否包含語音訊息相關元素
   let hasSlider = false;
-  
+
   // 遍歷所有可能的語音訊息滑桿標籤
   for (const label of DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL) {
     if (element.querySelector(`[role="slider"][aria-label="${label}"]`)) {
@@ -102,7 +106,7 @@ export function findVoiceMessageElement(clickedElement) {
   // 策略 2: 在點擊元素內部查找
   Logger.debug("在元素內部尋找語音訊息元素");
   let sliderInside = null;
-  
+
   // 遍歷所有可能的語音訊息滑桿標籤
   for (const label of DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL) {
     const foundSlider = clickedElement.querySelector(
@@ -134,7 +138,7 @@ export function findVoiceMessageElement(clickedElement) {
 
       // 在父元素中查找滑杆
       let slider = null;
-      
+
       // 遍歷所有可能的語音訊息滑桿標籤
       for (const label of DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL) {
         const foundSlider = parent.querySelector(
@@ -163,28 +167,4 @@ export function findVoiceMessageElement(clickedElement) {
 
   Logger.warn("無法找到語音訊息元素");
   return null;
-}
-
-/**
- * 標記元素為語音訊息元素
- *
- * @param {Element} element - 要標記的元素
- * @param {string} id - 語音訊息 ID
- */
-export function markAsVoiceMessageElement(element, id) {
-  if (!element || !id) {
-    Logger.warn("嘗試使用無效的元素或 ID 標記語音訊息元素", {
-      hasElement: !!element,
-      hasId: !!id,
-    });
-    return;
-  }
-
-  element.setAttribute(DOM_CONSTANTS.VOICE_MESSAGE_ELEMENT_DATA_ATTR, "true");
-  element.setAttribute(DOM_CONSTANTS.VOICE_MESSAGE_ID_DATA_ATTR, id);
-
-  Logger.debug("標記語音訊息元素成功", {
-    elementTag: element.tagName,
-    id,
-  });
 }
