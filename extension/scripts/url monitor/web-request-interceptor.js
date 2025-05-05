@@ -112,28 +112,6 @@ function handleRequest(voiceMessages, details) {
       requestId: details.requestId, // 用於匹配回應
       timestamp: Date.now(),
     });
-
-    // // 計算持續時間
-    // const durationMs = getAudioDuration(metadata, url);
-
-    // if (durationMs) {
-    //   logger.debug("開始註冊語音訊息檔案", {
-    //     url: url.substring(0, 100) + "...",
-    //     durationMs: durationMs,
-    //     contentType: metadata.contentType,
-    //     contentLength: metadata.contentLength,
-    //   });
-
-    //   // 註冊下載 URL
-    //   const id = registerDownloadUrl(
-    //     voiceMessages,
-    //     durationMs,
-    //     url,
-    //     metadata.lastModified
-    //   );
-
-    //   logger.info("語音訊息 URL 註冊完成", { id, durationMs, url });
-    // }
   } catch (error) {
     logger.error("處理請求時發生錯誤", {
       error: error.message,

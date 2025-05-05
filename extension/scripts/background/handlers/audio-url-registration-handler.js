@@ -57,7 +57,7 @@ export function handleAudioUrlRegistration(
   }
 
   try {
-    // 使用 registerDownloadUrl 函數將 Blob URL 註冊到 voiceMessagesStore
+    // 使用 registerDownloadUrl 函數將 Audio URL 註冊到 voiceMessagesStore
     const id = voiceMessagesStore.registerDownloadUrl(
       voiceMessagesStore,
       durationMs,
