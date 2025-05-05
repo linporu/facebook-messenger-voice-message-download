@@ -9,6 +9,8 @@ import { Logger } from "../utils/logger.js";
 import {
   MODULE_NAMES,
   VOICE_MESSAGE_URL_PATTERNS,
+  MESSAGE_ACTIONS,
+  SUPPORTED_SITES,
 } from "../utils/constants.js";
 
 const logger = Logger.createModuleLogger(MODULE_NAMES.WEB_REQUEST);
@@ -97,27 +99,41 @@ function handleRequest(voiceMessages, details) {
       method: method,
     });
 
-    // 計算持續時間
-    const durationMS = getAudioDuration(metadata, url);
-
-    if (durationMS) {
-      logger.debug("開始註冊語音訊息檔案", {
-        url: url.substring(0, 100) + "...",
-        durationMs: durationMS,
+    // 向所有可能的標籤頁發送訊息，請求計算音訊持續時間
+    // 由於我們不知道請求來自哪個標籤頁，所以需要廣播訊息
+    broadcastToContentScripts({
+      action: MESSAGE_ACTIONS.GET_AUDIO_DURATION,
+      url: url,
+      metadata: {
         contentType: metadata.contentType,
         contentLength: metadata.contentLength,
-      });
+        lastModified: metadata.lastModified,
+      },
+      requestId: details.requestId, // 用於匹配回應
+      timestamp: Date.now(),
+    });
 
-      // 註冊下載 URL
-      const id = registerDownloadUrl(
-        voiceMessages,
-        durationMS,
-        url,
-        metadata.lastModified
-      );
+    // // 計算持續時間
+    // const durationMs = getAudioDuration(metadata, url);
 
-      logger.info("語音訊息 URL 註冊完成", { id, durationMS, url });
-    }
+    // if (durationMs) {
+    //   logger.debug("開始註冊語音訊息檔案", {
+    //     url: url.substring(0, 100) + "...",
+    //     durationMs: durationMs,
+    //     contentType: metadata.contentType,
+    //     contentLength: metadata.contentLength,
+    //   });
+
+    //   // 註冊下載 URL
+    //   const id = registerDownloadUrl(
+    //     voiceMessages,
+    //     durationMs,
+    //     url,
+    //     metadata.lastModified
+    //   );
+
+    //   logger.info("語音訊息 URL 註冊完成", { id, durationMs, url });
+    // }
   } catch (error) {
     logger.error("處理請求時發生錯誤", {
       error: error.message,
@@ -166,4 +182,32 @@ function getMetadata(responseHeaders) {
     }
   }
   return metadata;
+}
+
+// ================================================
+// 向內容腳本廣播訊息函數
+// ================================================
+
+/**
+ * 向所有標籤頁廣播訊息
+ * @param {Object} message - 要發送的訊息
+ */
+function broadcastToContentScripts(message) {
+  chrome.tabs.query({ url: SUPPORTED_SITES.PATTERNS }, (tabs) => {
+    logger.debug(`向 ${tabs.length} 個標籤頁廣播訊息`, { message });
+
+    for (const tab of tabs) {
+      chrome.tabs.sendMessage(tab.id, message, (response) => {
+        if (chrome.runtime.lastError) {
+          logger.warn(`向標籤頁 ${tab.id} 發送訊息失敗`, {
+            error: chrome.runtime.lastError.message,
+          });
+        } else if (response && response.success) {
+          logger.debug(`標籤頁 ${tab.id} 已接收訊息`, {
+            responseData: response,
+          });
+        }
+      });
+    }
+  });
 }

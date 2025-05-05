@@ -11,11 +11,14 @@ import {
   MESSAGE_SOURCES,
   MESSAGE_TYPES,
   TIME_CONSTANTS,
+  MODULE_NAMES,
+  MESSAGE_ACTIONS,
 } from "./utils/constants.js";
 import { initBlobMonitor } from "./url monitor/blob-monitor.js";
+import { handleGetAudioDurationRequest } from "./url monitor/audio-analyzer.js";
 
 // 創建模組特定的日誌記錄器
-const logger = Logger.createModuleLogger("main-module");
+const logger = Logger.createModuleLogger(MODULE_NAMES.MAIN_MODULE);
 
 /**
  * 主要初始化函數
@@ -58,10 +61,8 @@ function initialize() {
     "*"
   );
 
-  // 不再需要定期清理過期項目，這將由背景腳本處理
-
   // 設置訊息監聽器，處理與內容腳本的通訊
-  window.addEventListener("message", function (event) {
+  window.addEventListener("message", async function (event) {
     // 確保訊息來自同一個頁面
     if (event.source !== window) return;
 
@@ -74,8 +75,15 @@ function initialize() {
       const message = event.data.message;
 
       // 根據訊息類型處理
-      if (message.action === "someAction") {
-        // 處理特定動作
+      if (message.action === MESSAGE_ACTIONS.GET_AUDIO_DURATION) {
+        const durationMs = await handleGetAudioDurationRequest(message);
+
+        // 只有在成功獲得持續時間後才註冊
+        if (durationMs !== undefined && durationMs !== null) {
+          registerAudioUrlWithBackend(message.url, durationMs);
+        } else {
+          logger.warn("獲取的音訊持續時間無效", { url: message.url });
+        }
       }
     }
   });
@@ -110,4 +118,23 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initialize);
 } else {
   initialize();
+}
+
+/**
+ * 向背景腳本註冊 Audio URL
+ */
+function registerAudioUrlWithBackend(url, durationMs) {
+  // 發送註冊訊息到背景腳本
+  window.sendToBackground({
+    action: MESSAGE_ACTIONS.REGISTER_AUDIO_URL,
+    audioUrl: url,
+    durationMs: durationMs,
+    timestamp: new Date().toISOString(),
+  });
+
+  // 記錄詳細資訊
+  logger.info("向背景腳本發送 Audio URL 註冊資訊", {
+    audioUrl: url.substring(0, 50),
+    durationMs: durationMs,
+  });
 }

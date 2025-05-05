@@ -71,10 +71,13 @@ export const MESSAGE_TYPES = {
 export const MESSAGE_ACTIONS = {
   RIGHT_CLICK: "rightClickOnVoiceMessage",
   REGISTER_ELEMENT: "registerVoiceMessageElement",
-  DOWNLOAD_BLOB: "downloadBlobContent",
+  REGISTER_AUDIO_URL: "registerAudioUrl",
   REGISTER_BLOB_URL: "registerBlobUrl",
+  DOWNLOAD_BLOB: "downloadBlobContent",
+
   BLOB_DETECTED: "blobUrlDetected",
   UPDATE_ELEMENT: "updateVoiceMessageElement",
+  GET_AUDIO_DURATION: "getAudioDuration",
 };
 
 // ===========================================
@@ -226,6 +229,7 @@ export const LOG_LEVELS = {
 export const MODULE_NAMES = {
   BACKGROUND: "background",
   CONTENT_SCRIPT: "content-script",
+  MAIN_MODULE: "main-module",
   MENU_MANAGER: "menu-manager",
   MESSAGE_HANDLER: "message-handler",
   DOWNLOAD_MANAGER: "download-manager",
@@ -239,6 +243,7 @@ export const MODULE_NAMES = {
   BLOB_HANDLER: "blob-handler",
   RIGHT_CLICK_HANDLER: "right-click-handler",
   ELEMENT_REGISTRATION_HANDLER: "element-registration-handler",
+  AUDIO_URL_REGISTRATION_HANDLER: "audio-url-registration-handler"
 };
 
 // ===========================================
