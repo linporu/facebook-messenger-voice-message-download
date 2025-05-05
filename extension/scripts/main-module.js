@@ -9,8 +9,6 @@ import { initContextMenuHandler } from "./content/context-menu-handler.js";
 import { Logger } from "./utils/logger.js";
 import {
   MESSAGE_SOURCES,
-  MESSAGE_TYPES,
-  TIME_CONSTANTS,
   MODULE_NAMES,
   MESSAGE_ACTIONS,
 } from "./utils/constants.js";
@@ -82,7 +80,7 @@ function initialize() {
         if (durationMs !== undefined && durationMs !== null) {
           registerAudioUrlWithBackend(message.url, durationMs);
         } else {
-          logger.warn("獲取的音訊持續時間無效", { url: message.url });
+          logger.debug("獲取的音訊持續時間無效", { url: message.url });
         }
       }
     }
@@ -133,7 +131,7 @@ function registerAudioUrlWithBackend(url, durationMs) {
   });
 
   // 記錄詳細資訊
-  logger.info("向背景腳本發送 Audio URL 註冊資訊", {
+  logger.debug("向背景腳本發送 Audio URL 註冊資訊", {
     audioUrl: url.substring(0, 50),
     durationMs: durationMs,
   });

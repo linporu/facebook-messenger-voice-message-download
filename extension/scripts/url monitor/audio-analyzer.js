@@ -9,7 +9,6 @@ import {
   SUPPORTED_SITES,
   BLOB_MONITOR_CONSTANTS,
   WEB_REQUEST_CONSTANTS,
-  AUDIO_REGEX,
 } from "../utils/constants.js";
 
 // 創建模組特定的日誌記錄器
@@ -78,7 +77,7 @@ export function isLikelyVoiceMessage(url, method, statusCode, metadata) {
  * @param {string} url - 音訊 URL
  * @returns {Promise<Object>} - 持續時間計算結果
  */
-export function getAudioDurationFromAudioElement(url) {
+export function getAudioDuration(url) {
   return new Promise((resolve, reject) => {
     logger.debug("開始計算音訊持續時間", {
       url: url.substring(0, 50) + "...",
@@ -143,7 +142,7 @@ export function getAudioDurationFromAudioElement(url) {
 export async function handleGetAudioDurationRequest(message) {
   try {
     // 使用 await 等待計算結果
-    const result = await getAudioDurationFromAudioElement(message.url);
+    const result = await getAudioDuration(message.url);
 
     logger.debug("已取得音訊持續時間計算結果", result);
     return result;

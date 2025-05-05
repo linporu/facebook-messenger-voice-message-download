@@ -3,8 +3,7 @@
  * 使用 Chrome 的 webRequest API 監控網路請求，用於攔截語音訊息的下載 URL
  */
 
-import { getAudioDuration, isLikelyVoiceMessage } from "./audio-analyzer.js";
-import { registerDownloadUrl } from "../background/data-store.js";
+import { isLikelyVoiceMessage } from "./audio-analyzer.js";
 import { Logger } from "../utils/logger.js";
 import {
   MODULE_NAMES,
@@ -100,7 +99,6 @@ function handleRequest(voiceMessages, details) {
     });
 
     // 向所有可能的標籤頁發送訊息，請求計算音訊持續時間
-    // 由於我們不知道請求來自哪個標籤頁，所以需要廣播訊息
     broadcastToContentScripts({
       action: MESSAGE_ACTIONS.GET_AUDIO_DURATION,
       url: url,
@@ -109,7 +107,6 @@ function handleRequest(voiceMessages, details) {
         contentLength: metadata.contentLength,
         lastModified: metadata.lastModified,
       },
-      requestId: details.requestId, // 用於匹配回應
       timestamp: Date.now(),
     });
   } catch (error) {
@@ -177,7 +174,7 @@ function broadcastToContentScripts(message) {
     for (const tab of tabs) {
       chrome.tabs.sendMessage(tab.id, message, (response) => {
         if (chrome.runtime.lastError) {
-          logger.warn(`向標籤頁 ${tab.id} 發送訊息失敗`, {
+          logger.debug(`向標籤頁 ${tab.id} 發送訊息失敗`, {
             error: chrome.runtime.lastError.message,
           });
         } else if (response && response.success) {
