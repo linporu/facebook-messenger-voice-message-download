@@ -241,7 +241,7 @@ export const MODULE_NAMES = {
   BLOB_HANDLER: "blob-handler",
   RIGHT_CLICK_HANDLER: "right-click-handler",
   ELEMENT_REGISTRATION_HANDLER: "element-registration-handler",
-  AUDIO_URL_REGISTRATION_HANDLER: "audio-url-registration-handler"
+  AUDIO_URL_REGISTRATION_HANDLER: "audio-url-registration-handler",
 };
 
 // ===========================================
@@ -268,4 +268,11 @@ export const AUDIO_REGEX = {
 export const FILENAME_CONSTANTS = {
   // 語音訊息檔名前綴
   VOICE_MESSAGE_FILENAME_PREFIX: "voice-message-",
+};
+
+// ===========================================
+// 下載相關常數
+// ===========================================
+export const DOWNLOAD_CONSTANTS = {
+  SAVE_AS: false,
 };
