@@ -5,6 +5,7 @@
 
 import { generateVoiceMessageFilename } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
+import { DOWNLOAD_CONSTANTS } from "../utils/constants.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger("download-manager");
@@ -86,7 +87,7 @@ export function downloadVoiceMessage(url, lastModified) {
     {
       url: url,
       filename: filename,
-      saveAs: false,
+      saveAs: DOWNLOAD_CONSTANTS.SAVE_AS,
     },
     (downloadId) => {
       if (chrome.runtime.lastError) {
@@ -172,7 +173,7 @@ export function downloadBlobContent(message, sender, sendResponse) {
       {
         url: dataUrl,
         filename: filename,
-        saveAs: false,
+        saveAs: DOWNLOAD_CONSTANTS.SAVE_AS,
       },
       (downloadId) => {
         if (chrome.runtime.lastError) {
