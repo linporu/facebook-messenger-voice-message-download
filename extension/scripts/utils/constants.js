@@ -110,7 +110,7 @@ export const UI_CONSTANTS = {
   BADGE_TEXT: "ON",
   BADGE_COLOR: "#4CAF50",
   CONTEXT_MENU_ID: "downloadVoiceMessage",
-  CONTEXT_MENU_TITLE: "Download Voice Message 下載語音訊息",
+  CONTEXT_MENU_TITLE: "Download Voice Message",
 };
 
 // ===========================================
