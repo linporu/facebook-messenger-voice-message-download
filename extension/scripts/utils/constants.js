@@ -274,5 +274,5 @@ export const FILENAME_CONSTANTS = {
 // 下載相關常數
 // ===========================================
 export const DOWNLOAD_CONSTANTS = {
-  SAVE_AS: false,
+  SAVE_AS: true,
 };
