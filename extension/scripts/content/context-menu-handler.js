@@ -3,10 +3,7 @@
  * 負責處理右鍵選單事件
  */
 
-import {
-  findVoiceMessageElement,
-  getDurationFromSlider,
-} from "../dom monitor/dom-utils.js";
+import { findVoiceMessageElement, getDurationFromSlider } from "./dom-utils.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
 import { MESSAGE_ACTIONS, MODULE_NAMES } from "../utils/constants.js";
@@ -124,69 +121,22 @@ function sendRightClickMessage(
     data: message,
   });
 
-  // 使用 window.sendToBackground 發送訊息
-  if (window.sendToBackground) {
-    try {
-      // 添加錯誤處理
-      window.sendToBackground(message);
-      Logger.debug("訊息已發送到背景腳本", {
+  // 使用 chrome.runtime.sendMessage 直接發送訊息
+  try {
+    chrome.runtime.sendMessage(message, (response) => {
+      Logger.debug("chrome.runtime.sendMessage 回應", {
         module: MODULE_NAMES.CONTEXT_MENU,
+        data: response,
       });
-    } catch (error) {
-      Logger.error("發送訊息到背景腳本時發生錯誤", {
-        module: MODULE_NAMES.CONTEXT_MENU,
-        data: error,
-      });
-
-      // 如果使用 sendToBackground 失敗，嘗試使用 chrome.runtime.sendMessage
-      if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
-        try {
-          chrome.runtime.sendMessage(message, (response) => {
-            Logger.debug("chrome.runtime.sendMessage 回應", {
-              module: MODULE_NAMES.CONTEXT_MENU,
-              data: response,
-            });
-          });
-          Logger.debug("已使用 chrome.runtime.sendMessage 發送訊息", {
-            module: MODULE_NAMES.CONTEXT_MENU,
-          });
-        } catch (chromeError) {
-          Logger.error("使用 chrome.runtime.sendMessage 發生錯誤", {
-            module: MODULE_NAMES.CONTEXT_MENU,
-            data: chromeError,
-          });
-        }
-      }
-    }
-  } else {
-    // 如果沒有 sendToBackground 函數，嘗試使用 chrome.runtime.sendMessage
-    Logger.warn(
-      "sendToBackground 函數不存在，嘗試使用 chrome.runtime.sendMessage",
-      { module: MODULE_NAMES.CONTEXT_MENU }
-    );
-
-    if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
-      try {
-        chrome.runtime.sendMessage(message, (response) => {
-          Logger.debug("chrome.runtime.sendMessage 回應", {
-            module: MODULE_NAMES.CONTEXT_MENU,
-            data: response,
-          });
-        });
-        Logger.debug("已使用 chrome.runtime.sendMessage 發送訊息", {
-          module: MODULE_NAMES.CONTEXT_MENU,
-        });
-      } catch (error) {
-        Logger.error("使用 chrome.runtime.sendMessage 發生錯誤", {
-          module: MODULE_NAMES.CONTEXT_MENU,
-          data: error,
-        });
-      }
-    } else {
-      Logger.error("無法發送訊息到背景腳本，所有可用的方法都失敗", {
-        module: MODULE_NAMES.CONTEXT_MENU,
-      });
-    }
+    });
+    Logger.debug("已直接發送訊息到背景腳本", {
+      module: MODULE_NAMES.CONTEXT_MENU,
+    });
+  } catch (error) {
+    Logger.error("使用 chrome.runtime.sendMessage 發生錯誤", {
+      module: MODULE_NAMES.CONTEXT_MENU,
+      data: error,
+    });
   }
 
   Logger.info("發送右鍵點擊訊息", {
