@@ -10,9 +10,13 @@ import {
   VOICE_MESSAGE_URL_PATTERNS,
   MESSAGE_ACTIONS,
   SUPPORTED_SITES,
+  TIME_CONSTANTS,
 } from "../utils/constants.js";
 
 const logger = Logger.createModuleLogger(MODULE_NAMES.WEB_REQUEST);
+
+// 使用 Set 結構來儲存已處理過的 URL
+let processedUrls = new Set();
 
 // ================================================
 // 公開函數
@@ -34,6 +38,9 @@ export function initWebRequestInterceptor(voiceMessages) {
 
     // 設置網路請求監聽器
     setupWebRequestListeners(voiceMessages);
+
+    // 設置定期清理機制
+    setupPeriodicUrlCacheCleanup();
 
     logger.info("webRequest 攔截器已初始化", {
       patterns: VOICE_MESSAGE_URL_PATTERNS,
@@ -70,6 +77,19 @@ function setupWebRequestListeners(voiceMessages) {
   );
 }
 
+/**
+ * 設置定期清理過期的 URL 快取
+ * 簡化版：直接清空整個快取
+ */
+function setupPeriodicUrlCacheCleanup() {
+  setInterval(() => {
+    // 直接創建新的 Set，讓舊的被垃圾回收
+    processedUrls = new Set();
+
+    logger.debug("已清空 URL 快取");
+  }, TIME_CONSTANTS.CLEANUP_INTERVAL);
+}
+
 // ================================================
 // 請求處理函數
 // ================================================
@@ -82,6 +102,14 @@ function setupWebRequestListeners(voiceMessages) {
 function handleRequest(voiceMessages, details) {
   try {
     const { url, method, statusCode, responseHeaders } = details;
+
+    // 檢查 URL 是否已經處理過
+    if (processedUrls.has(url)) {
+      logger.debug("已處理過此 URL，跳過", {
+        url: url.substring(0, 50) + "...",
+      });
+      return;
+    }
 
     // 提取 metadata
     const metadata = getMetadata(responseHeaders);
@@ -97,6 +125,9 @@ function handleRequest(voiceMessages, details) {
       statusCode: statusCode,
       method: method,
     });
+
+    // 將此 URL 標記為已處理
+    markUrlAsProcessed(url);
 
     // 向所有可能的標籤頁發送訊息，請求計算音訊持續時間
     broadcastToContentScripts({
@@ -115,6 +146,18 @@ function handleRequest(voiceMessages, details) {
       stack: error.stack,
     });
   }
+}
+
+/**
+ * 將 URL 標記為已處理
+ * @param {string} url - 要標記的 URL
+ */
+function markUrlAsProcessed(url) {
+  processedUrls.add(url);
+  logger.debug("URL 已標記為已處理", {
+    url: url.substring(0, 50) + "...",
+    cacheSize: processedUrls.size,
+  });
 }
 
 // ================================================
