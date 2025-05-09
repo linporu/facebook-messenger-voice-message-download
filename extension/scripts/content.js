@@ -7,9 +7,6 @@ import { Logger } from "./utils/logger.js";
 import {
   SUPPORTED_SITES,
   MESSAGE_SOURCES,
-  MESSAGE_TYPES,
-  MESSAGE_ACTIONS,
-  TIME_CONSTANTS,
   MODULE_NAMES,
 } from "./utils/constants.js";
 import { handleExtractBlobRequest } from "./url monitor/blob-monitor.js";
@@ -25,14 +22,14 @@ const isSupportedSite = SUPPORTED_SITES.DOMAINS.some((domain) =>
 );
 
 if (!isSupportedSite) {
-  logger.info("不支援的網站，擴充功能不會啟動");
+  logger.debug("不支援的網站，擴充功能不會啟動");
 } else {
   // 創建頁面上下文腳本標籤
   const script = document.createElement("script");
   script.type = "module";
   script.src = chrome.runtime.getURL("scripts/page-context.js");
   script.onload = function () {
-    logger.info("Facebook Messenger 語音訊息下載器已載入頁面上下文模組");
+    logger.debug("Facebook Messenger 語音訊息下載器已載入頁面上下文模組");
     this.remove(); // 載入後移除腳本標籤
   };
 
@@ -80,9 +77,9 @@ if (!isSupportedSite) {
     return true;
   });
 
-  // 直接在內容腳本中初始化右鍵選單處理器
+  // 初始化右鍵選單處理器
   initContextMenuHandler();
-  logger.debug("已在內容腳本中初始化右鍵選單處理器");
+  logger.debug("已初始化右鍵選單處理器");
 
   // 初始化內容腳本訊息處理器
   // 確保頁面上下文已經載入

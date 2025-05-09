@@ -28,7 +28,7 @@ function initialize() {
   }
 
   try {
-    // 初始化 Blob 監控模組 - 這是需要在頁面上下文中運行的核心功能
+    // 初始化 Blob 監控模組
     logger.debug("準備初始化 Blob 監控模組");
     initBlobMonitor();
     logger.debug("Blob 監控模組初始化完成");
