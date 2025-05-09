@@ -3,10 +3,7 @@
  * 負責處理右鍵選單事件
  */
 
-import {
-  findVoiceMessageElement,
-  getDurationFromSlider,
-} from "../dom monitor/dom-utils.js";
+import { findVoiceMessageElement, getDurationFromSlider } from "./dom-utils.js";
 import { secondsToMilliseconds } from "../utils/time-utils.js";
 import { Logger } from "../utils/logger.js";
 import { MESSAGE_ACTIONS, MODULE_NAMES } from "../utils/constants.js";

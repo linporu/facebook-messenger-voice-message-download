@@ -9,7 +9,6 @@ import {
   MESSAGE_SOURCES,
   MODULE_NAMES,
 } from "./utils/constants.js";
-import { handleExtractBlobRequest } from "./url monitor/blob-monitor.js";
 import { initMessageHandler } from "./content/message-handler.js";
 import { initContextMenuHandler } from "./content/context-menu-handler.js";
 
