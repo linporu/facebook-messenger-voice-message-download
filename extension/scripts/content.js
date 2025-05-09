@@ -13,6 +13,7 @@ import {
   MODULE_NAMES,
 } from "./utils/constants.js";
 import { handleExtractBlobRequest } from "./url monitor/blob-monitor.js";
+import { initMessageHandler } from "./content/message-handler.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.CONTENT_SCRIPT);
@@ -71,6 +72,13 @@ if (!isSupportedSite) {
     );
     return true;
   });
+
+  // 初始化內容腳本訊息處理器
+  // 確保主模組和 sendToBackground 函數已經載入
+  setTimeout(() => {
+    initMessageHandler();
+    logger.debug("內容腳本訊息處理器已初始化");
+  }, 300);
 
   logger.info("Facebook Messenger 語音訊息下載器已初始化");
 }

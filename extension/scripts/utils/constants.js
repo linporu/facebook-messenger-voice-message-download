@@ -231,6 +231,7 @@ export const MODULE_NAMES = {
   MAIN_MODULE: "main-module",
   MENU_MANAGER: "menu-manager",
   MESSAGE_HANDLER: "message-handler",
+  CONTENT_MESSAGE_HANDLER: "content-message-handler",
   DOWNLOAD_MANAGER: "download-manager",
   DATA_STORE: "data-store",
   WEB_REQUEST: "web-request-interceptor",
