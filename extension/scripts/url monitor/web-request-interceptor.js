@@ -16,14 +16,7 @@ import {
 const logger = Logger.createModuleLogger(MODULE_NAMES.WEB_REQUEST);
 
 // 使用 Set 結構來儲存已處理過的 URL
-// Set 比起 WeakMap 更適合用於 URL 字串
-const processedUrls = new Set();
-
-// 定義過期的時間閾值 (例如：10分鐘)
-const URL_CACHE_EXPIRATION = 10 * 60 * 1000; // 10分鐘
-
-// 儲存 URL 和處理時間
-const urlTimestamps = new Map();
+let processedUrls = new Set();
 
 // ================================================
 // 公開函數
@@ -86,24 +79,14 @@ function setupWebRequestListeners(voiceMessages) {
 
 /**
  * 設置定期清理過期的 URL 快取
+ * 簡化版：直接清空整個快取
  */
 function setupPeriodicUrlCacheCleanup() {
   setInterval(() => {
-    const now = Date.now();
-    let cleanupCount = 0;
+    // 直接創建新的 Set，讓舊的被垃圾回收
+    processedUrls = new Set();
 
-    // 清理過期的 URL
-    for (const [url, timestamp] of urlTimestamps.entries()) {
-      if (now - timestamp > URL_CACHE_EXPIRATION) {
-        processedUrls.delete(url);
-        urlTimestamps.delete(url);
-        cleanupCount++;
-      }
-    }
-
-    if (cleanupCount > 0) {
-      logger.debug(`清理了 ${cleanupCount} 個過期的 URL 快取項目`);
-    }
+    logger.debug("已清空 URL 快取");
   }, TIME_CONSTANTS.CLEANUP_INTERVAL);
 }
 
@@ -121,7 +104,7 @@ function handleRequest(voiceMessages, details) {
     const { url, method, statusCode, responseHeaders } = details;
 
     // 檢查 URL 是否已經處理過
-    if (hasProcessedUrl(url)) {
+    if (processedUrls.has(url)) {
       logger.debug("已處理過此 URL，跳過", {
         url: url.substring(0, 50) + "...",
       });
@@ -166,21 +149,11 @@ function handleRequest(voiceMessages, details) {
 }
 
 /**
- * 檢查 URL 是否已處理過
- * @param {string} url - 要檢查的 URL
- * @returns {boolean} - 是否已處理過
- */
-function hasProcessedUrl(url) {
-  return processedUrls.has(url);
-}
-
-/**
  * 將 URL 標記為已處理
  * @param {string} url - 要標記的 URL
  */
 function markUrlAsProcessed(url) {
   processedUrls.add(url);
-  urlTimestamps.set(url, Date.now());
   logger.debug("URL 已標記為已處理", {
     url: url.substring(0, 50) + "...",
     cacheSize: processedUrls.size,
