@@ -60,6 +60,7 @@ export const VOICE_MESSAGE_URL_PATTERNS = [
 export const MESSAGE_SOURCES = {
   CONTENT_SCRIPT: "CONTENT_SCRIPT",
   BACKGROUND_SCRIPT: "BACKGROUND_SCRIPT",
+  PAGE_CONTEXT: "PAGE_CONTEXT",
 };
 
 // 為了向後兼容，保留舊的常數但使用新的值
@@ -228,7 +229,7 @@ export const LOG_LEVELS = {
 export const MODULE_NAMES = {
   BACKGROUND: "background",
   CONTENT_SCRIPT: "content-script",
-  MAIN_MODULE: "main-module",
+  PAGE_CONTEXT: "page-context",
   MENU_MANAGER: "menu-manager",
   MESSAGE_HANDLER: "message-handler",
   CONTENT_MESSAGE_HANDLER: "content-message-handler",

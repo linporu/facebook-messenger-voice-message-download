@@ -11,8 +11,8 @@ module.exports = {
     // 內容腳本
     content: "./extension/scripts/content.js",
 
-    // 主模組腳本 (由內容腳本動態載入)
-    "main-module": "./extension/scripts/main-module.js",
+    // 頁面上下文腳本 (由內容腳本動態載入)
+    "page-context": "./extension/scripts/page-context.js",
   },
 
   output: {

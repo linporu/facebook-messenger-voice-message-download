@@ -9,7 +9,8 @@ import {
   MESSAGE_ACTIONS,
   MODULE_NAMES,
 } from "../utils/constants.js";
-import { handleGetAudioDurationRequest } from "../url monitor/audio-analyzer.js";
+import { handleGetAudioDurationRequest } from "../page-context/audio-analyzer.js";
+import { handleExtractBlobRequest } from "../page-context/blob-monitor.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.CONTENT_MESSAGE_HANDLER);
@@ -21,12 +22,41 @@ const logger = Logger.createModuleLogger(MODULE_NAMES.CONTENT_MESSAGE_HANDLER);
 export function initMessageHandler() {
   logger.debug("初始化內容腳本訊息處理器");
 
-  // 設置訊息監聽器，處理與內容腳本的通訊
+  // 設置訊息監聽器，處理來自頁面上下文的訊息
   window.addEventListener("message", async function (event) {
     // 確保訊息來自同一個頁面
     if (event.source !== window) return;
 
-    // 處理來自內容腳本的訊息
+    // 處理來自頁面上下文的訊息
+    if (event.data.type && event.data.type === MESSAGE_SOURCES.PAGE_CONTEXT) {
+      const message = event.data.message;
+      logger.debug("收到頁面上下文訊息", { message });
+
+      // 處理特定類型的訊息
+      switch (message.action) {
+        case MESSAGE_ACTIONS.REGISTER_BLOB_URL:
+          // 處理 Blob URL 註冊訊息 - 轉發到背景腳本
+          sendMessageToBackground(message);
+          break;
+
+        case MESSAGE_ACTIONS.BLOB_DETECTED:
+          // 處理 Blob 偵測到的訊息 - 轉發到背景腳本
+          sendMessageToBackground(message);
+          break;
+
+        case "pageContextInitialized":
+          // 處理頁面上下文初始化訊息
+          logger.info("頁面上下文已初始化");
+          break;
+
+        default:
+          // 其他訊息轉發到背景腳本
+          sendMessageToBackground(message);
+          break;
+      }
+    }
+
+    // 處理來自背景腳本的訊息
     if (
       event.data.type &&
       event.data.type === MESSAGE_SOURCES.BACKGROUND_SCRIPT
@@ -40,6 +70,24 @@ export function initMessageHandler() {
   });
 
   logger.info("內容腳本訊息處理器已初始化");
+}
+
+/**
+ * 將訊息發送到背景腳本
+ * @param {Object} message - 要發送的訊息
+ */
+function sendMessageToBackground(message) {
+  try {
+    logger.debug("準備將訊息發送到背景腳本", { message });
+
+    chrome.runtime.sendMessage(message, function (response) {
+      logger.debug("背景腳本回應", { response });
+    });
+
+    logger.debug("訊息已發送到背景腳本");
+  } catch (error) {
+    logger.error("發送訊息到背景腳本時發生錯誤", { error });
+  }
 }
 
 /**
@@ -60,6 +108,13 @@ async function handleMessage(message) {
       } else {
         logger.debug("獲取的音訊持續時間無效", { url: message.url });
       }
+      break;
+
+    case MESSAGE_ACTIONS.DOWNLOAD_BLOB:
+      logger.debug("處理提取 Blob 內容請求");
+      await handleExtractBlobRequest(message, (response) => {
+        logger.debug("提取 Blob 內容回應", { response });
+      });
       break;
 
     // 可以添加更多訊息類型的處理...
@@ -86,10 +141,8 @@ function registerAudioUrlWithBackend(url, durationMs) {
     timestamp: new Date().toISOString(),
   };
 
-  // 使用 chrome.runtime.sendMessage 直接發送給背景腳本
-  chrome.runtime.sendMessage(message, function (response) {
-    logger.debug("註冊 Audio URL 回應", { response });
-  });
+  // 發送訊息到背景腳本
+  sendMessageToBackground(message);
 
   // 記錄詳細資訊
   logger.debug("向背景腳本發送 Audio URL 註冊資訊", {
