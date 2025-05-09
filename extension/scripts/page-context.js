@@ -5,11 +5,7 @@
  */
 
 import { Logger } from "./utils/logger.js";
-import {
-  MESSAGE_SOURCES,
-  MODULE_NAMES,
-  MESSAGE_ACTIONS,
-} from "./utils/constants.js";
+import { MESSAGE_SOURCES, MODULE_NAMES } from "./utils/constants.js";
 import { initBlobMonitor } from "./url monitor/blob-monitor.js";
 
 // 創建模組特定的日誌記錄器 - 使用新的模組名稱
@@ -27,7 +23,7 @@ function initialize() {
     window.location.hostname.includes("messenger.com");
 
   if (!isSupportedSite) {
-    logger.info("不支援的網站，擴充功能不會啟動");
+    logger.debug("不支援的網站，擴充功能不會啟動");
     return;
   }
 
@@ -39,8 +35,6 @@ function initialize() {
   } catch (error) {
     logger.error("初始化 Blob 監控模組時出錯", { error });
   }
-
-  logger.debug("使用 webRequest API 模式，不再使用 fetch 代理攔截");
 
   // 通知內容腳本頁面上下文已初始化
   window.postMessage(
@@ -76,9 +70,6 @@ function initialize() {
       return false;
     }
   };
-
-  // 為了向後兼容，保留舊的函數名稱
-  window.sendToBackground = window.sendToContent;
 
   logger.info("頁面上下文模組已啟動");
 }

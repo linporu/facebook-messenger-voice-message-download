@@ -229,7 +229,6 @@ export const LOG_LEVELS = {
 export const MODULE_NAMES = {
   BACKGROUND: "background",
   CONTENT_SCRIPT: "content-script",
-  MAIN_MODULE: "main-module",
   PAGE_CONTEXT: "page-context",
   MENU_MANAGER: "menu-manager",
   MESSAGE_HANDLER: "message-handler",

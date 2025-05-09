@@ -120,28 +120,22 @@ export function setupBlobUrlMonitor() {
  */
 function registerBlobWithBackend(blob, blobUrl, durationMs) {
   // 使用 sendToContent 函數發送訊息
-  // 為了向後相容，同時支援 sendToBackground 與 sendToContent 函數
-  const sendFunction = window.sendToContent || window.sendToBackground;
-  if (typeof sendFunction === "function") {
-    sendFunction({
-      action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
-      blobUrl: blobUrl,
-      blobType: blob.type,
-      blobSize: blob.size,
-      durationMs: durationMs,
-      timestamp: new Date().toISOString(),
-    });
+  window.sendToContent({
+    action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
+    blobUrl: blobUrl,
+    blobType: blob.type,
+    blobSize: blob.size,
+    durationMs: durationMs,
+    timestamp: new Date().toISOString(),
+  });
 
-    // 記錄詳細資訊
-    logger.info("向內容腳本發送 blob url 註冊資訊", {
-      blobUrl: blobUrl.substring(0, 50),
-      blobType: blob.type,
-      blobSizeBytes: blob.size,
-      durationMs: durationMs,
-    });
-  } else {
-    logger.error("無法發送 Blob 註冊訊息，通訊函數不可用");
-  }
+  // 記錄詳細資訊
+  logger.info("向內容腳本發送 blob url 註冊資訊", {
+    blobUrl: blobUrl.substring(0, 50),
+    blobType: blob.type,
+    blobSizeBytes: blob.size,
+    durationMs: durationMs,
+  });
 }
 
 /**
@@ -205,13 +199,13 @@ export async function handleExtractBlobRequest(message, sendResponse) {
 export function initBlobMonitor() {
   try {
     logger.info("開始初始化 Blob 監控模組");
-    
+
     // 設置 URL 監控
     setupBlobUrlMonitor();
-    
+
     // 設置定期清理
     setupPeriodicCleanup();
-    
+
     logger.info("Blob 監控模組初始化完成");
   } catch (error) {
     logger.error("初始化 Blob 監控模組時發生錯誤", { error });
