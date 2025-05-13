@@ -11,13 +11,13 @@ const logger = Logger.createModuleLogger("onboarding");
 
 // 頁面載入時執行
 document.addEventListener("DOMContentLoaded", async () => {
-  logger.info("Onboarding 頁面載入");
+  logger.info("Onboarding page loaded");
 
   // 檢查是否已經完成過 onboarding
   const result = await chrome.storage.local.get(["onboardingCompleted"]);
 
   if (result.onboardingCompleted) {
-    logger.info("用戶已完成過 onboarding");
+    logger.info("User has already completed onboarding");
     // 可以顯示不同的內容或添加"已完成"標記
     showCompletedMessage();
   }
@@ -37,11 +37,11 @@ function setupCompleteButton() {
 
   if (completeButton) {
     completeButton.addEventListener("click", async () => {
-      logger.info("用戶點擊完成按鈕");
+      logger.info("User clicked complete button");
 
       // 添加載入狀態
       completeButton.disabled = true;
-      completeButton.textContent = "載入中...";
+      completeButton.textContent = "Loading...";
 
       try {
         // 標記 onboarding 已完成
@@ -50,7 +50,7 @@ function setupCompleteButton() {
           completedAt: Date.now(),
         });
 
-        logger.info("Onboarding 狀態已更新");
+        logger.info("Onboarding status updated");
 
         // 檢查是否有已開啟的 Messenger 標籤
         const tabs = await chrome.tabs.query({
@@ -59,7 +59,7 @@ function setupCompleteButton() {
 
         if (tabs.length > 0) {
           // 如果有已開啟的標籤，切換到第一個並重新整理
-          logger.info("找到已開啟的 Facebook/Messenger 標籤");
+          logger.info("Found open Facebook/Messenger tab");
           await chrome.tabs.update(tabs[0].id, { active: true });
           await chrome.tabs.reload(tabs[0].id);
 
@@ -72,7 +72,7 @@ function setupCompleteButton() {
           }, 3000);
         } else {
           // 如果沒有，開啟新的 Messenger 標籤
-          logger.info("開啟新的 Messenger 標籤");
+          logger.info("Opening new Messenger tab");
           await chrome.tabs.create({
             url: "https://www.messenger.com",
             active: true,
@@ -82,9 +82,9 @@ function setupCompleteButton() {
           window.close();
         }
       } catch (error) {
-        logger.error("完成 onboarding 時發生錯誤", { error });
+        logger.error("Error completing onboarding", { error });
         completeButton.disabled = false;
-        completeButton.textContent = "開始使用 →";
+        completeButton.textContent = "Get Started →";
         showErrorMessage();
       }
     });
@@ -101,7 +101,7 @@ function showCompletedMessage() {
   notice.innerHTML = `
         <div class="notice-content">
             <span class="notice-icon">✅</span>
-            <span>您已經完成過設定，可以直接使用擴充功能！</span>
+            <span>You have already completed the setup and can use the extension directly!</span>
         </div>
     `;
   container.insertBefore(notice, container.firstChild);
@@ -118,7 +118,7 @@ function showSuccessMessage() {
   successMsg.className = "success-message";
   successMsg.innerHTML = `
         <span class="success-icon">✅</span>
-        <p>設定完成！正在為您重新整理頁面...</p>
+        <p>Setup complete! Refreshing the page for you...</p>
     `;
 
   footer.insertBefore(successMsg, button);
@@ -135,7 +135,7 @@ function showErrorMessage() {
   errorMsg.className = "error-message";
   errorMsg.innerHTML = `
         <span class="error-icon">❌</span>
-        <p>發生錯誤，請重試</p>
+        <p>An error occurred, please try again</p>
     `;
 
   footer.appendChild(errorMsg);

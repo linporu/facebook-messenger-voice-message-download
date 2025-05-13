@@ -10,18 +10,18 @@ import { Logger } from "../scripts/utils/logger.js";
 const logger = Logger.createModuleLogger("popup");
 
 document.addEventListener("DOMContentLoaded", async function () {
-  logger.info("Popup 載入完成");
+  logger.info("Popup loaded");
 
   // 顯示基本狀態
   const statusElement = document.querySelector(".status p");
   const now = new Date();
-  statusElement.textContent = `✅ 擴充功能運作中！ (${now.toLocaleTimeString()})`;
+  statusElement.textContent = `✅ Extension is running! (${now.toLocaleTimeString()})`;
 
   // 檢查 onboarding 狀態
   try {
     const { completed, installTime, completedAt } =
       await checkOnboardingStatus();
-    logger.debug("Onboarding 狀態", { completed, installTime, completedAt });
+    logger.debug("Onboarding status", { completed, installTime, completedAt });
 
     if (!completed) {
       // 如果未完成 onboarding，顯示提醒
@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     // 添加快速連結
     addQuickLinks();
   } catch (error) {
-    logger.error("檢查 onboarding 狀態時發生錯誤", { error });
+    logger.error("Error checking onboarding status", { error });
   }
 });
 
@@ -48,8 +48,8 @@ function showOnboardingReminder() {
     <div class="reminder-content">
       <span class="reminder-icon">⚠️</span>
       <div class="reminder-text">
-        <p>請先完成初始設定</p>
-        <button id="open-onboarding" class="small-button">開始設定</button>
+        <p>Please complete initial setup first</p>
+        <button id="open-onboarding" class="small-button">Start Setup</button>
       </div>
     </div>
   `;
@@ -73,12 +73,12 @@ function showCompletedStatus(completedAt) {
   if (!completedAt) return;
 
   const completedDate = new Date(completedAt);
-  const formattedDate = completedDate.toLocaleDateString("zh-TW");
+  const formattedDate = completedDate.toLocaleDateString("en-US");
 
   const completedDiv = document.createElement("div");
   completedDiv.className = "completed-status";
   completedDiv.innerHTML = `
-    <p class="completed-text">✨ 設定完成於 ${formattedDate}</p>
+    <p class="completed-text">✨ Setup completed on ${formattedDate}</p>
   `;
 
   const footer = document.querySelector(".footer");
@@ -92,23 +92,23 @@ function addQuickLinks() {
   const linksDiv = document.createElement("div");
   linksDiv.className = "quick-links";
   linksDiv.innerHTML = `
-    <h3>快速連結</h3>
+    <h3>Quick Links</h3>
     <div class="links-grid">
       <button id="open-messenger" class="link-button">
         <span class="icon">💬</span>
-        <span>開啟 Messenger</span>
+        <span>Open Messenger</span>
       </button>
       <button id="open-facebook" class="link-button">
         <span class="icon">📘</span>
-        <span>開啟 Facebook</span>
+        <span>Open Facebook</span>
       </button>
       <button id="view-tutorial" class="link-button">
         <span class="icon">📖</span>
-        <span>檢視教學</span>
+        <span>View Tutorial</span>
       </button>
       <button id="report-issue" class="link-button">
         <span class="icon">🐛</span>
-        <span>回報問題</span>
+        <span>Report Issue</span>
       </button>
     </div>
   `;
@@ -135,9 +135,9 @@ function addQuickLinks() {
   });
 
   document.getElementById("report-issue").addEventListener("click", () => {
-    // 這裡可以連結到 GitHub issues 或其他回報頁面
+    // You can link to GitHub issues or other report pages here
     chrome.tabs.create({
-      url: "mailto:linpoju.richard@gmail.com?subject=VoiLoad%20問題回報",
+      url: "mailto:linpoju.richard@gmail.com?subject=VoiLoad%20Issue%20Report",
     });
   });
 }
