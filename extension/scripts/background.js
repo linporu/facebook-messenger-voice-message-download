@@ -15,6 +15,10 @@ import {
   TIME_CONSTANTS,
   MODULE_NAMES,
 } from "./utils/constants.js";
+import {
+  checkOnboardingStatus,
+  markOnboardingShown,
+} from "./background/onboarding-utils.js";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.BACKGROUND);
@@ -76,8 +80,11 @@ function initialize() {
 }
 
 // 當擴充功能安裝或更新時執行
-chrome.runtime.onInstalled.addListener(() => {
-  logger.info("Facebook Messenger 語音訊息下載器已安裝或更新");
+chrome.runtime.onInstalled.addListener(async (details) => {
+  logger.info("Facebook Messenger 語音訊息下載器已安裝或更新", {
+    reason: details.reason,
+    previousVersion: details.previousVersion,
+  });
 
   // 初始化擴充功能狀態
   chrome.action.setBadgeText({
@@ -87,6 +94,43 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.action.setBadgeBackgroundColor({
     color: UI_CONSTANTS.BADGE_COLOR,
   });
+
+  // 處理首次安裝
+  if (details.reason === "install") {
+    logger.info("首次安裝擴充功能，準備開啟 onboarding");
+
+    try {
+      // 記錄安裝時間
+      await chrome.storage.local.set({
+        installTime: Date.now(),
+      });
+
+      // 檢查 onboarding 狀態
+      const status = await checkOnboardingStatus();
+
+      if (!status.completed) {
+        // 開啟 onboarding 頁面
+        const onboardingUrl = chrome.runtime.getURL("onboarding/welcome.html");
+        chrome.tabs.create({
+          url: onboardingUrl,
+          active: true,
+        });
+
+        // 標記已顯示 onboarding
+        await markOnboardingShown();
+        logger.info("已開啟 onboarding 頁面");
+      }
+    } catch (error) {
+      logger.error("處理首次安裝時發生錯誤", { error });
+    }
+  } else if (details.reason === "update") {
+    logger.info("擴充功能已更新", {
+      fromVersion: details.previousVersion,
+      toVersion: chrome.runtime.getManifest().version,
+    });
+
+    // 可以在這裡添加版本更新的提醒邏輯
+  }
 });
 
 // 執行初始化

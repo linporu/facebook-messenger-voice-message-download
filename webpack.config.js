@@ -6,18 +6,24 @@ module.exports = {
 
   entry: {
     // 背景腳本
-    background: "./extension/scripts/background.js",
+    "scripts/background": "./extension/scripts/background.js",
 
     // 內容腳本
-    content: "./extension/scripts/content.js",
+    "scripts/content": "./extension/scripts/content.js",
 
     // 頁面上下文腳本 (由內容腳本動態載入)
-    "page-context": "./extension/scripts/page-context.js",
+    "scripts/page-context": "./extension/scripts/page-context.js",
+
+    // onboarding 腳本
+    "onboarding/welcome": "./extension/onboarding/welcome.js",
+
+    // popup 腳本
+    "popup/popup": "./extension/popup/popup.js",
   },
 
   output: {
     path: path.resolve(__dirname, "dist"),
-    filename: "scripts/[name].js",
+    filename: "[name].js", // 這會維持目錄結構
     clean: true, // 在每次構建前清理 dist 文件夾
   },
 
@@ -45,32 +51,16 @@ module.exports = {
           globOptions: {
             ignore: [
               "**/scripts/**/*.js", // 忽略所有 JS 文件，因為它們會被 Webpack 處理
+              "**/onboarding/**/*.js", // 忽略 onboarding JS 文件
+              "**/popup/**/*.js", // 忽略 popup JS 文件
               "**/.DS_Store", // 忽略 macOS 系統文件
             ],
           },
         },
-        // 複製 manifest.json 並更新內容腳本路徑
+        // 直接複製 manifest.json，不需要修改路徑
         {
           from: "extension/manifest.json",
           to: "manifest.json",
-          transform(content) {
-            const manifest = JSON.parse(content.toString());
-
-            // 更新內容腳本路徑
-            if (
-              manifest.content_scripts &&
-              manifest.content_scripts.length > 0
-            ) {
-              manifest.content_scripts.forEach((script) => {
-                if (script.js && script.js.length > 0) {
-                  // 將所有內容腳本替換為打包後的版本
-                  script.js = ["scripts/content.js"];
-                }
-              });
-            }
-
-            return JSON.stringify(manifest, null, 2);
-          },
         },
       ],
     }),
