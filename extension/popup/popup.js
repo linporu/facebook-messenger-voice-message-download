@@ -14,8 +14,10 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   // 顯示基本狀態
   const statusElement = document.querySelector(".status p");
+  const statusDiv = document.querySelector(".status");
   const now = new Date();
   statusElement.textContent = `✅ Extension is running! (${now.toLocaleTimeString()})`;
+  statusDiv.classList.add("active");
 
   // 檢查 onboarding 狀態
   try {
