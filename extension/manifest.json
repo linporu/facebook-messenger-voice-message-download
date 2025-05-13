@@ -5,7 +5,13 @@
   "version": "0.5.0",
   "author": "linpoju.richard@gmail.com",
 
-  "permissions": ["activeTab", "contextMenus", "downloads", "webRequest"],
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "downloads",
+    "webRequest",
+    "storage"
+  ],
   "host_permissions": [
     "*://*.facebook.com/*",
     "*://*.messenger.com/*",
@@ -37,7 +43,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["scripts/*"],
+      "resources": ["scripts/*", "onboarding/*"],
       "matches": ["*://*.facebook.com/*", "*://*.messenger.com/*"]
     }
   ],
