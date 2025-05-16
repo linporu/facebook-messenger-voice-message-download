@@ -26,7 +26,7 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, 
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   background-color: var(--background);
   color: var(--text-primary);
@@ -45,8 +45,16 @@ body::before {
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at 20% 50%, rgba(0, 132, 255, 0.1) 0%, transparent 50%),
-              radial-gradient(circle at 80% 80%, rgba(23, 119, 242, 0.1) 0%, transparent 50%);
+  background: radial-gradient(
+      circle at 20% 50%,
+      rgba(0, 132, 255, 0.1) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 80%,
+      rgba(23, 119, 242, 0.1) 0%,
+      transparent 50%
+    );
   pointer-events: none;
 }
 
@@ -55,8 +63,7 @@ body::before {
   width: 90%;
   background: var(--surface);
   border-radius: 16px;
-  box-shadow: 0 4px 24px var(--shadow-lg),
-              0 0 48px rgba(0, 132, 255, 0.1);
+  box-shadow: 0 4px 24px var(--shadow-lg), 0 0 48px rgba(0, 132, 255, 0.1);
   border: 1px solid var(--border);
   padding: 48px;
   animation: fadeIn 0.4s ease-out;
@@ -95,7 +102,7 @@ header {
 .logo {
   width: 80px;
   height: 80px;
-  margin-bottom: 24px;
+
   animation: bounceIn 0.5s ease-out;
   filter: drop-shadow(0 0 20px var(--glow));
 }
@@ -113,6 +120,7 @@ header {
 }
 
 h1 {
+  color: var(--primary-color);
   font-size: 2.5rem;
   font-weight: 700;
   background: var(--primary-gradient);
@@ -132,9 +140,11 @@ h1 {
   border: 1px solid var(--warning);
   border-radius: 12px;
   padding: 24px;
-  margin-bottom: 48px;
-  display: flex;
-  align-items: center;
+  line-height: 1.6;
+  margin-bottom: 40px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
   gap: 16px;
   animation: slideIn 0.4s ease-out 0.2s both;
   box-shadow: 0 0 24px rgba(255, 152, 0, 0.1);
@@ -152,25 +162,27 @@ h1 {
 }
 
 .notice-icon {
-  font-size: 2rem;
+  font-size: 3rem;
   flex-shrink: 0;
 }
 
 .important-notice h2 {
-  font-size: 1.5rem;
+  font-size: 2rem;
   margin-bottom: 8px;
   color: var(--warning);
 }
 
 .important-notice p {
+  font-size: 1.2rem;
   color: var(--text-secondary);
   margin: 0;
 }
 
 .important-notice .highlight {
   font-weight: 600;
-  font-size: 1.1rem;
+  font-size: 1.3rem;
   color: var(--warning);
+  margin-bottom: 8px;
 }
 
 .steps {
@@ -178,14 +190,21 @@ h1 {
 }
 
 .steps h2 {
-  font-size: 1.75rem;
-  margin-bottom: 32px;
+  font-size: 2.5rem;
+  line-height: 2;
+  font-weight: 700;
+  background: var(--primary-gradient);
+  color: var(--primary-color);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 20px;
   text-align: center;
 }
 
 .step {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 24px;
   margin-bottom: 32px;
   opacity: 0;
@@ -229,12 +248,13 @@ h1 {
 }
 
 .step-content h3 {
-  font-size: 1.25rem;
-  margin-bottom: 8px;
+  font-size: 1.5rem;
+  line-height: 1.6;
 }
 
 .step-content p {
   color: var(--text-secondary);
+  font-size: 1rem;
 }
 
 .features {
@@ -308,9 +328,9 @@ footer {
   background: var(--primary-gradient);
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: 48px;
   padding: 16px 48px;
-  font-size: 1.25rem;
+  font-size: 1.6rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -328,7 +348,12 @@ footer {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
   transition: left 0.6s ease;
 }
 
@@ -347,7 +372,7 @@ footer {
 
 .footer-note {
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 /* 額外樣式 */
@@ -486,7 +511,7 @@ button:disabled {
     --text-secondary: #e0e0e0;
     --border: #666666;
   }
-  
+
   .primary-button {
     border: 2px solid white;
   }
