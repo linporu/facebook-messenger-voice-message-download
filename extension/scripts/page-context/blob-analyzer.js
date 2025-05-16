@@ -132,97 +132,6 @@ export async function calculateBlobDuration(blobOrUrl, blobType = null) {
 }
 
 /**
- * 使用 Web Audio API 解析音訊持續時間
- *
- * @param {Blob} blob - 音訊 Blob 對象
- * @param {Function} resolve - Promise 解析函數
- * @param {Function} reject - Promise 拒絕函數
- */
-function resolveUsingWebAudioAPI(blob, resolve, reject) {
-  try {
-    logger.debug("嘗試使用 Web Audio API 計算持續時間");
-
-    // 創建 AudioContext
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const audioContext = new AudioContext();
-
-    // 設置超時處理
-    const timeoutId = setTimeout(() => {
-      logger.error("Web Audio API 解碼超時");
-      // 確保關閉 AudioContext
-      if (audioContext && audioContext.state !== "closed") {
-        try {
-          audioContext.close();
-        } catch (err) {
-          logger.error("關閉 AudioContext 時發生錯誤", { error: err });
-        }
-      }
-      reject(new Error("Web Audio API 解碼超時"));
-    }, TIME_CONSTANTS.AUDIO_LOAD_TIMEOUT + 2000); // 音訊載入超時加2秒
-
-    // 設置清理函數
-    const cleanup = () => {
-      clearTimeout(timeoutId);
-      if (audioContext && audioContext.state !== "closed") {
-        try {
-          audioContext.close();
-        } catch (err) {
-          logger.error("關閉 AudioContext 時發生錯誤", { error: err });
-        }
-      }
-    };
-
-    // 將 Blob 轉換為 ArrayBuffer
-    const fileReader = new FileReader();
-
-    fileReader.onload = function () {
-      try {
-        // 解碼音訊數據
-        audioContext.decodeAudioData(
-          fileReader.result,
-          (audioBuffer) => {
-            // 獲取持續時間（秒）並轉換為毫秒
-            const durationMs = Math.round(audioBuffer.duration * 1000);
-            logger.debug("使用 Web Audio API 獲取到持續時間", { durationMs });
-
-            // 清理資源
-            cleanup();
-            resolve(durationMs);
-          },
-          (decodeError) => {
-            logger.error("解碼音訊數據時發生錯誤", { error: decodeError });
-
-            // 清理資源
-            cleanup();
-            reject(decodeError);
-          }
-        );
-      } catch (decodeError) {
-        logger.error("處理音訊數據時發生錯誤", { error: decodeError });
-
-        // 清理資源
-        cleanup();
-        reject(decodeError);
-      }
-    };
-
-    fileReader.onerror = function (readError) {
-      logger.error("讀取 Blob 時發生錯誤", { error: readError });
-
-      // 清理資源
-      cleanup();
-      reject(readError);
-    };
-
-    // 開始讀取 Blob
-    fileReader.readAsArrayBuffer(blob);
-  } catch (error) {
-    logger.error("使用 Web Audio API 計算持續時間失敗", { error });
-    reject(error);
-  }
-}
-
-/**
  * 提取 Blob 內容並轉換為 base64 格式
  *
  * @param {string} blobUrl - blob URL
@@ -328,10 +237,3 @@ export function isLikelyVoiceMessageBlob(blob) {
   logger.debug("Blob 滿足音訊檔案的基本條件");
   return true;
 }
-
-// 匯出所有功能
-export default {
-  calculateBlobDuration,
-  extractBlobContent,
-  isLikelyVoiceMessageBlob,
-};
