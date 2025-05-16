@@ -211,12 +211,3 @@ export function initBlobMonitor() {
     logger.error("初始化 Blob 監控模組時發生錯誤", { error });
   }
 }
-
-// 導出需要的函數和常數
-export default {
-  initBlobMonitor,
-  setupBlobUrlMonitor,
-  handleExtractBlobRequest,
-  // 導出供測試和偵錯使用的內部狀態
-  BlobProcessingQueue,
-};
