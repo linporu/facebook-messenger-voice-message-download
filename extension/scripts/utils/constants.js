@@ -4,6 +4,30 @@
  */
 
 // ===========================================
+// 模組名稱常數
+// ===========================================
+export const MODULE_NAMES = {
+  BACKGROUND: "background",
+  CONTENT_SCRIPT: "content-script",
+  PAGE_CONTEXT: "page-context",
+  MENU_MANAGER: "menu-manager",
+  MESSAGE_HANDLER: "message-handler",
+  CONTENT_MESSAGE_HANDLER: "content-message-handler",
+  DOWNLOAD_MANAGER: "download-manager",
+  DATA_STORE: "data-store",
+  WEB_REQUEST: "web-request-interceptor",
+  AUDIO_ANALYZER: "audio-analyzer",
+  DOM_DETECTOR: "dom-detector",
+  CONTEXT_MENU: "context-menu-handler",
+  BLOB_ANALYZER: "blob-analyzer",
+  BLOB_MONITOR: "blob-monitor",
+  BLOB_HANDLER: "blob-handler",
+  RIGHT_CLICK_HANDLER: "right-click-handler",
+  ELEMENT_REGISTRATION_HANDLER: "element-registration-handler",
+  AUDIO_URL_REGISTRATION_HANDLER: "audio-url-registration-handler",
+};
+
+// ===========================================
 // Blob 監控相關常數
 // ===========================================
 export const BLOB_MONITOR_CONSTANTS = {
@@ -63,12 +87,6 @@ export const MESSAGE_SOURCES = {
   PAGE_CONTEXT: "PAGE_CONTEXT",
 };
 
-// 為了向後兼容，保留舊的常數但使用新的值
-export const MESSAGE_TYPES = {
-  FROM_CONTENT: MESSAGE_SOURCES.CONTENT_SCRIPT,
-  FROM_BACKGROUND: MESSAGE_SOURCES.BACKGROUND_SCRIPT,
-};
-
 export const MESSAGE_ACTIONS = {
   RIGHT_CLICK: "rightClickOnVoiceMessage",
   REGISTER_AUDIO_URL: "registerAudioUrl",
@@ -77,20 +95,6 @@ export const MESSAGE_ACTIONS = {
   BLOB_DETECTED: "blobUrlDetected",
   UPDATE_ELEMENT: "updateVoiceMessageElement",
   GET_AUDIO_DURATION: "getAudioDuration",
-};
-
-// ===========================================
-// 檔案處理相關常數
-// ===========================================
-export const FILE_EXTENSIONS = {
-  "audio/mpeg": ".mp3",
-  "audio/mp3": ".mp3",
-  "audio/mp4": ".mp4",
-  "video/mp4": ".mp4",
-  "audio/wav": ".wav",
-  "audio/ogg": ".ogg",
-  "audio/aac": ".aac",
-  default: ".bin",
 };
 
 // ===========================================
@@ -196,20 +200,6 @@ export const DOM_CONSTANTS = {
       audioSlider: "오디오 스크러버",
     },
   },
-
-  // 語音訊息元素的 data 屬性
-  VOICE_MESSAGE_ELEMENT_DATA_ATTR: "data-voice-message-element",
-
-  // 語音訊息 ID 的 data 屬性
-  VOICE_MESSAGE_ID_DATA_ATTR: "data-voice-message-id",
-};
-
-// ===========================================
-// ID 相關常數
-// ===========================================
-export const ID_CONSTANTS = {
-  // 語音訊息 ID 前綴
-  VOICE_MESSAGE_ID_PREFIX: "voice-msg-",
 };
 
 // ===========================================
@@ -224,53 +214,19 @@ export const LOG_LEVELS = {
 };
 
 // ===========================================
-// 模組名稱常數
-// ===========================================
-export const MODULE_NAMES = {
-  BACKGROUND: "background",
-  CONTENT_SCRIPT: "content-script",
-  PAGE_CONTEXT: "page-context",
-  MENU_MANAGER: "menu-manager",
-  MESSAGE_HANDLER: "message-handler",
-  CONTENT_MESSAGE_HANDLER: "content-message-handler",
-  DOWNLOAD_MANAGER: "download-manager",
-  DATA_STORE: "data-store",
-  WEB_REQUEST: "web-request-interceptor",
-  AUDIO_ANALYZER: "audio-analyzer",
-  DOM_DETECTOR: "dom-detector",
-  CONTEXT_MENU: "context-menu-handler",
-  BLOB_ANALYZER: "blob-analyzer",
-  BLOB_MONITOR: "blob-monitor",
-  BLOB_HANDLER: "blob-handler",
-  RIGHT_CLICK_HANDLER: "right-click-handler",
-  ELEMENT_REGISTRATION_HANDLER: "element-registration-handler",
-  AUDIO_URL_REGISTRATION_HANDLER: "audio-url-registration-handler",
-};
-
-// ===========================================
-// 音訊分析相關正則表達式常數
-// ===========================================
-export const AUDIO_REGEX = {
-  // Content-Disposition 相關正則表達式
-  OLD_FORMAT_FILENAME: /filename=audioclip-\d+-([\d]+)\.mp4/,
-  DURATION_PARAM: /duration=([\d]+)/,
-  FILENAME_PATTERN: /filename=["']?([^"']+)["']?/,
-
-  // URL 相關正則表達式
-  AUDIOCLIP_URL: /audioclip-\d+-([0-9]+)\.mp4/,
-  DURATION_URL_PARAM: /[?&]duration=([\d]+)/,
-  LENGTH_URL_PARAM: /[?&]length=([\d]+)/,
-
-  // URL 特徵檢測
-  AUDIO_URL_PATTERNS: /\/o1\/v\/t2\/f2\/m69\/|\/v\/t\/|audioclip/,
-};
-
-// ===========================================
 // 檔名相關常數
 // ===========================================
 export const FILENAME_CONSTANTS = {
   // 語音訊息檔名前綴
   VOICE_MESSAGE_FILENAME_PREFIX: "voice-message-",
+};
+
+// ===========================================
+// ID 相關常數
+// ===========================================
+export const ID_CONSTANTS = {
+  // 語音訊息 ID 前綴
+  VOICE_MESSAGE_ID_PREFIX: "voice-msg-",
 };
 
 // ===========================================
